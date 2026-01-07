@@ -400,6 +400,11 @@
                     <i class="bi bi-gear"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">Export Image</h6></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportAsPNG()"><i class="bi bi-file-image me-2"></i>Export as PNG</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportAsSVG()"><i class="bi bi-filetype-svg me-2"></i>Export as SVG</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">Project Data</h6></li>
                     <li><a class="dropdown-item" href="#" onclick="exportData()"><i class="bi bi-download me-2"></i>Export JSON</a></li>
                     <li><a class="dropdown-item" href="#" onclick="document.getElementById('importFile').click()"><i class="bi bi-upload me-2"></i>Import JSON</a></li>
                     <li><hr class="dropdown-divider"></li>
@@ -1084,6 +1089,232 @@
             renderTimelineHeader();
             renderTaskList();
             renderTimelineBody();
+        }
+
+        // Color map for SVG export
+        const colorMap = {
+            blue: { start: '#3b82f6', end: '#2563eb' },
+            green: { start: '#22c55e', end: '#16a34a' },
+            purple: { start: '#8b5cf6', end: '#7c3aed' },
+            orange: { start: '#f97316', end: '#ea580c' },
+            pink: { start: '#ec4899', end: '#db2777' },
+            teal: { start: '#14b8a6', end: '#0d9488' }
+        };
+
+        // Generate SVG content
+        function generateSVG() {
+            const totalDays = daysBetween(startDate, endDate) + 1;
+            const sidebarWidth = 300;
+            const headerHeight = 50;
+            const width = sidebarWidth + totalDays * dayWidth;
+            const height = headerHeight + tasks.length * rowHeight;
+
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
+
+            // Defs for gradients and markers
+            svg += `<defs>`;
+            Object.entries(colorMap).forEach(([name, colors]) => {
+                svg += `<linearGradient id="grad-${name}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:${colors.start}"/>
+                    <stop offset="100%" style="stop-color:${colors.end}"/>
+                </linearGradient>`;
+            });
+            svg += `<marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+            </marker>`;
+            svg += `</defs>`;
+
+            // Background
+            svg += `<rect width="${width}" height="${height}" fill="#f8fafc"/>`;
+
+            // Sidebar background
+            svg += `<rect x="0" y="0" width="${sidebarWidth}" height="${height}" fill="white"/>`;
+            svg += `<rect x="0" y="0" width="${sidebarWidth}" height="${headerHeight}" fill="white"/>`;
+            svg += `<line x1="${sidebarWidth}" y1="0" x2="${sidebarWidth}" y2="${height}" stroke="#e2e8f0" stroke-width="2"/>`;
+
+            // Sidebar header
+            svg += `<text x="16" y="30" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748b">TASK NAME</text>`;
+
+            // Timeline header background
+            svg += `<rect x="${sidebarWidth}" y="0" width="${totalDays * dayWidth}" height="${headerHeight}" fill="white"/>`;
+            svg += `<line x1="${sidebarWidth}" y1="${headerHeight}" x2="${width}" y2="${headerHeight}" stroke="#e2e8f0"/>`;
+
+            // Draw timeline columns (weekends, today)
+            let dayIndex = 0;
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const x = sidebarWidth + dayIndex * dayWidth;
+                const dayOfWeek = d.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isToday = d.toDateString() === today.toDateString();
+
+                if (isWeekend) {
+                    svg += `<rect x="${x}" y="0" width="${dayWidth}" height="${height}" fill="#fafafa"/>`;
+                }
+                if (isToday) {
+                    svg += `<rect x="${x}" y="0" width="${dayWidth}" height="${height}" fill="#eef2ff"/>`;
+                }
+                dayIndex++;
+            }
+
+            // Draw month headers and day numbers
+            let current = new Date(startDate);
+            let xOffset = sidebarWidth;
+            while (current <= endDate) {
+                const month = current.toLocaleString('default', { month: 'short' });
+                const year = current.getFullYear();
+                const monthStart = new Date(current);
+                const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+                const displayEnd = monthEnd > endDate ? endDate : monthEnd;
+
+                let dayCount = 0;
+                for (let d = new Date(monthStart); d <= displayEnd; d.setDate(d.getDate() + 1)) {
+                    const dayNum = d.getDate();
+                    const dayX = xOffset + dayCount * dayWidth;
+                    svg += `<text x="${dayX + dayWidth/2}" y="${headerHeight - 8}" font-family="system-ui, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">${dayNum}</text>`;
+                    dayCount++;
+                }
+
+                const monthWidth = dayCount * dayWidth;
+                svg += `<text x="${xOffset + monthWidth/2}" y="18" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748b" text-anchor="middle">${month} ${year}</text>`;
+                svg += `<line x1="${xOffset + monthWidth}" y1="0" x2="${xOffset + monthWidth}" y2="${headerHeight}" stroke="#e2e8f0"/>`;
+
+                xOffset += monthWidth;
+                current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+            }
+
+            // Draw horizontal row lines
+            for (let i = 0; i <= tasks.length; i++) {
+                const y = headerHeight + i * rowHeight;
+                svg += `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="#f1f5f9"/>`;
+            }
+
+            // Draw task rows
+            tasks.forEach((task, index) => {
+                const y = headerHeight + index * rowHeight;
+                const isGroup = task.type === 'group';
+
+                // Row background for groups
+                if (isGroup) {
+                    svg += `<rect x="0" y="${y}" width="${sidebarWidth}" height="${rowHeight}" fill="#f1f5f9"/>`;
+                    svg += `<rect x="${sidebarWidth}" y="${y}" width="${totalDays * dayWidth}" height="${rowHeight}" fill="#f8fafc"/>`;
+                }
+
+                // Task name in sidebar
+                const icon = isGroup ? '📁' : (task.type === 'milestone' ? '◆' : '☐');
+                svg += `<text x="16" y="${y + rowHeight/2 + 4}" font-family="system-ui, sans-serif" font-size="12" fill="#1e293b" ${isGroup ? 'font-weight="600"' : ''}>${icon} ${task.name}</text>`;
+
+                // Assignee
+                if (task.assignee) {
+                    svg += `<circle cx="${sidebarWidth - 24}" cy="${y + rowHeight/2}" r="12" fill="#818cf8"/>`;
+                    svg += `<text x="${sidebarWidth - 24}" y="${y + rowHeight/2 + 4}" font-family="system-ui, sans-serif" font-size="9" fill="white" text-anchor="middle" font-weight="600">${task.assignee}</text>`;
+                }
+            });
+
+            // Draw dependencies
+            tasks.forEach((task, index) => {
+                if (!task.dependsOn) return;
+                const depIndex = tasks.findIndex(t => t.id === task.dependsOn);
+                if (depIndex === -1) return;
+
+                const depTask = tasks[depIndex];
+                const depEnd = parseDate(depTask.end);
+                const taskStart = parseDate(task.start);
+
+                const x1 = sidebarWidth + daysBetween(startDate, depEnd) * dayWidth + dayWidth;
+                const y1 = headerHeight + depIndex * rowHeight + rowHeight / 2;
+                const x2 = sidebarWidth + daysBetween(startDate, taskStart) * dayWidth;
+                const y2 = headerHeight + index * rowHeight + rowHeight / 2;
+
+                const midX = (x1 + x2) / 2;
+                svg += `<path d="M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>`;
+            });
+
+            // Draw bars
+            tasks.forEach((task, index) => {
+                const taskStart = parseDate(task.start);
+                const taskEnd = parseDate(task.end);
+                const startOffset = daysBetween(startDate, taskStart) * dayWidth;
+                const duration = daysBetween(taskStart, taskEnd) + 1;
+                const barWidth = duration * dayWidth - 4;
+                const x = sidebarWidth + startOffset + 2;
+                const y = headerHeight + index * rowHeight;
+
+                if (task.type === 'milestone') {
+                    const mx = sidebarWidth + startOffset + dayWidth/2;
+                    const my = y + rowHeight/2;
+                    svg += `<rect x="${mx - 10}" y="${my - 10}" width="14" height="14" fill="#f97316" transform="rotate(45 ${mx} ${my})" rx="2"/>`;
+                } else if (task.type === 'group') {
+                    svg += `<rect x="${x}" y="${y + 18}" width="${barWidth}" height="8" fill="#475569" rx="2"/>`;
+                    svg += `<polygon points="${x},${y + 26} ${x + 4},${y + 26} ${x + 2},${y + 30}" fill="#475569"/>`;
+                    svg += `<polygon points="${x + barWidth},${y + 26} ${x + barWidth - 4},${y + 26} ${x + barWidth - 2},${y + 30}" fill="#475569"/>`;
+                } else {
+                    const color = task.color || 'blue';
+                    svg += `<rect x="${x}" y="${y + 10}" width="${barWidth}" height="24" fill="url(#grad-${color})" rx="4"/>`;
+                    if (task.progress > 0) {
+                        svg += `<rect x="${x}" y="${y + 10}" width="${barWidth * task.progress / 100}" height="24" fill="rgba(255,255,255,0.25)" rx="4"/>`;
+                    }
+                    svg += `<text x="${x + 8}" y="${y + 26}" font-family="system-ui, sans-serif" font-size="11" fill="white" font-weight="500">${task.name}</text>`;
+                }
+            });
+
+            // Today line
+            const todayOffset = daysBetween(startDate, today) * dayWidth + dayWidth / 2;
+            if (todayOffset >= 0 && todayOffset <= totalDays * dayWidth) {
+                const tx = sidebarWidth + todayOffset;
+                svg += `<line x1="${tx}" y1="${headerHeight}" x2="${tx}" y2="${height}" stroke="#ef4444" stroke-width="2"/>`;
+                svg += `<text x="${tx}" y="${headerHeight - 5}" font-family="system-ui, sans-serif" font-size="9" fill="#ef4444" text-anchor="middle" font-weight="600">Today</text>`;
+            }
+
+            svg += `</svg>`;
+            return svg;
+        }
+
+        // Export as SVG
+        function exportAsSVG() {
+            const svg = generateSVG();
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gantt-chart.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('SVG exported successfully!');
+        }
+
+        // Export as PNG
+        function exportAsPNG() {
+            showToast('Generating PNG...');
+            const svg = generateSVG();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = () => {
+                canvas.width = img.width * 2; // 2x for better quality
+                canvas.height = img.height * 2;
+                ctx.scale(2, 2);
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillRect(0, 0, img.width, img.height);
+                ctx.drawImage(img, 0, 0);
+
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'gantt-chart.png';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showToast('PNG exported successfully!');
+                }, 'image/png');
+            };
+
+            img.onerror = () => {
+                showToast('Error generating PNG');
+            };
+
+            const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+            img.src = URL.createObjectURL(svgBlob);
         }
 
         // Initialize
