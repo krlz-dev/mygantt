@@ -16,9 +16,7 @@
             --timeline-header: 50px;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -89,29 +87,20 @@
             letter-spacing: 0.05em;
         }
 
-        .task-list {
-            flex: 1;
-            overflow-y: auto;
-        }
+        .task-list { flex: 1; overflow-y: auto; }
 
         .task-row {
             height: var(--row-height);
             display: flex;
             align-items: center;
-            padding: 0 16px;
+            padding: 0 8px 0 16px;
             border-bottom: 1px solid #f1f5f9;
             cursor: pointer;
             transition: background 0.15s;
         }
 
-        .task-row:hover {
-            background: #f8fafc;
-        }
-
-        .task-row.group {
-            background: #f1f5f9;
-            font-weight: 600;
-        }
+        .task-row:hover { background: #f8fafc; }
+        .task-row.group { background: #f1f5f9; font-weight: 600; }
 
         .task-row .task-icon {
             width: 20px;
@@ -126,6 +115,19 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .task-row .task-actions {
+            display: none;
+            gap: 4px;
+        }
+
+        .task-row:hover .task-actions { display: flex; }
+        .task-row:hover .task-assignee { display: none; }
+
+        .task-row .task-actions .btn {
+            padding: 2px 6px;
+            font-size: 0.75rem;
         }
 
         .task-row .task-assignee {
@@ -178,9 +180,7 @@
             border-bottom: 1px solid #f1f5f9;
         }
 
-        .timeline-days {
-            display: flex;
-        }
+        .timeline-days { display: flex; }
 
         .timeline-day {
             width: 36px;
@@ -191,21 +191,11 @@
             padding: 4px 0;
         }
 
-        .timeline-day.weekend {
-            background: #fafafa;
-            color: #cbd5e1;
-        }
-
-        .timeline-day.today {
-            background: #eef2ff;
-            color: var(--primary);
-            font-weight: 600;
-        }
+        .timeline-day.weekend { background: #fafafa; color: #cbd5e1; }
+        .timeline-day.today { background: #eef2ff; color: var(--primary); font-weight: 600; }
 
         /* Timeline Body */
-        .timeline-body {
-            position: relative;
-        }
+        .timeline-body { position: relative; }
 
         .timeline-row {
             height: var(--row-height);
@@ -214,9 +204,7 @@
             display: flex;
         }
 
-        .timeline-row.group {
-            background: #f8fafc;
-        }
+        .timeline-row.group { background: #f8fafc; }
 
         .timeline-cell {
             width: 36px;
@@ -224,13 +212,8 @@
             border-right: 1px solid #f1f5f9;
         }
 
-        .timeline-cell.weekend {
-            background: #fafafa;
-        }
-
-        .timeline-cell.today {
-            background: #eef2ff;
-        }
+        .timeline-cell.weekend { background: #fafafa; }
+        .timeline-cell.today { background: #eef2ff; }
 
         /* Gantt Bars */
         .gantt-bar {
@@ -244,15 +227,14 @@
             font-size: 0.75rem;
             color: white;
             font-weight: 500;
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: grab;
+            transition: box-shadow 0.15s;
             z-index: 5;
+            user-select: none;
         }
 
-        .gantt-bar:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
+        .gantt-bar:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .gantt-bar.dragging { cursor: grabbing; opacity: 0.8; z-index: 20; }
 
         .gantt-bar.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
         .gantt-bar.green { background: linear-gradient(135deg, #22c55e, #16a34a); }
@@ -268,6 +250,7 @@
             bottom: 0;
             background: rgba(255,255,255,0.25);
             border-radius: 4px 0 0 4px;
+            pointer-events: none;
         }
 
         .gantt-bar .bar-label {
@@ -276,7 +259,20 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            pointer-events: none;
         }
+
+        /* Resize Handles */
+        .gantt-bar .resize-handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+            cursor: ew-resize;
+        }
+
+        .gantt-bar .resize-handle.left { left: 0; }
+        .gantt-bar .resize-handle.right { right: 0; }
 
         /* Group Bar */
         .gantt-bar.group-bar {
@@ -284,6 +280,7 @@
             top: 18px;
             background: #475569;
             border-radius: 2px;
+            cursor: default;
         }
 
         .gantt-bar.group-bar::before,
@@ -296,15 +293,8 @@
             background: #475569;
         }
 
-        .gantt-bar.group-bar::before {
-            left: 0;
-            clip-path: polygon(0 0, 100% 0, 50% 100%);
-        }
-
-        .gantt-bar.group-bar::after {
-            right: 0;
-            clip-path: polygon(0 0, 100% 0, 50% 100%);
-        }
+        .gantt-bar.group-bar::before { left: 0; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+        .gantt-bar.group-bar::after { right: 0; clip-path: polygon(0 0, 100% 0, 50% 100%); }
 
         /* Milestone */
         .milestone {
@@ -319,6 +309,22 @@
             z-index: 5;
         }
 
+        /* Dependencies SVG */
+        .dependencies-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        .dependency-line {
+            fill: none;
+            stroke: #94a3b8;
+            stroke-width: 2;
+            marker-end: url(#arrowhead);
+        }
+
         /* Today Line */
         .today-line {
             position: absolute;
@@ -327,6 +333,7 @@
             width: 2px;
             background: #ef4444;
             z-index: 6;
+            pointer-events: none;
         }
 
         .today-line::before {
@@ -341,24 +348,43 @@
             white-space: nowrap;
         }
 
+        /* Modal customizations */
+        .modal-header { border-bottom: 1px solid #e2e8f0; }
+        .modal-footer { border-top: 1px solid #e2e8f0; }
+
+        .color-picker {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-option {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: transform 0.15s;
+        }
+
+        .color-option:hover { transform: scale(1.1); }
+        .color-option.selected { border-color: #1e293b; }
+
+        .color-option.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .color-option.green { background: linear-gradient(135deg, #22c55e, #16a34a); }
+        .color-option.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .color-option.orange { background: linear-gradient(135deg, #f97316, #ea580c); }
+        .color-option.pink { background: linear-gradient(135deg, #ec4899, #db2777); }
+        .color-option.teal { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+
         /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
+        /* Toast */
+        .toast-container { z-index: 1100; }
     </style>
 </head>
 <body>
@@ -366,10 +392,22 @@
     <header class="app-header">
         <h1><i class="bi bi-bar-chart-steps me-2"></i>SimpleGantt</h1>
         <div class="ms-auto d-flex gap-2">
-            <button class="btn btn-outline-secondary btn-sm">
+            <button class="btn btn-outline-secondary btn-sm" onclick="scrollToToday()">
                 <i class="bi bi-calendar3"></i> Today
             </button>
-            <button class="btn btn-add btn-primary btn-sm text-white">
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-gear"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" onclick="exportData()"><i class="bi bi-download me-2"></i>Export JSON</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="document.getElementById('importFile').click()"><i class="bi bi-upload me-2"></i>Import JSON</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-danger" href="#" onclick="clearAllData()"><i class="bi bi-trash me-2"></i>Clear All</a></li>
+                </ul>
+            </div>
+            <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+            <button class="btn btn-add btn-primary btn-sm text-white" onclick="openTaskModal()">
                 <i class="bi bi-plus-lg me-1"></i> Add Task
             </button>
         </div>
@@ -377,73 +415,252 @@
 
     <!-- Main Gantt Container -->
     <div class="gantt-container">
-        <!-- Task Sidebar -->
         <div class="task-sidebar">
             <div class="sidebar-header">
                 <span>Task Name</span>
                 <span class="ms-auto">Assignee</span>
             </div>
-            <div class="task-list" id="taskList">
-                <!-- Tasks populated by JS -->
-            </div>
+            <div class="task-list" id="taskList"></div>
         </div>
 
-        <!-- Timeline Area -->
         <div class="timeline-area" id="timelineArea">
             <div class="timeline-wrapper" id="timelineWrapper">
-                <div class="timeline-header" id="timelineHeader">
-                    <!-- Header populated by JS -->
-                </div>
+                <div class="timeline-header" id="timelineHeader"></div>
                 <div class="timeline-body" id="timelineBody">
-                    <!-- Rows and bars populated by JS -->
+                    <svg class="dependencies-layer" id="dependenciesLayer">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                            </marker>
+                        </defs>
+                    </svg>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div class="modal fade" id="taskModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="taskModalTitle">Add Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="taskId">
+                    <div class="mb-3">
+                        <label class="form-label">Task Name</label>
+                        <input type="text" class="form-control" id="taskName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <select class="form-select" id="taskType" onchange="toggleTaskFields()">
+                            <option value="task">Task</option>
+                            <option value="group">Group</option>
+                            <option value="milestone">Milestone</option>
+                        </select>
+                    </div>
+                    <div class="row mb-3" id="dateFields">
+                        <div class="col">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="taskStart">
+                        </div>
+                        <div class="col" id="endDateCol">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="taskEnd">
+                        </div>
+                    </div>
+                    <div id="taskFields">
+                        <div class="mb-3">
+                            <label class="form-label">Assignee (initials)</label>
+                            <input type="text" class="form-control" id="taskAssignee" maxlength="3" placeholder="e.g. JD">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Progress: <span id="progressValue">0</span>%</label>
+                            <input type="range" class="form-range" id="taskProgress" min="0" max="100" value="0" oninput="document.getElementById('progressValue').textContent=this.value">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Color</label>
+                            <div class="color-picker" id="colorPicker">
+                                <div class="color-option blue selected" data-color="blue"></div>
+                                <div class="color-option green" data-color="green"></div>
+                                <div class="color-option purple" data-color="purple"></div>
+                                <div class="color-option orange" data-color="orange"></div>
+                                <div class="color-option pink" data-color="pink"></div>
+                                <div class="color-option teal" data-color="teal"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Depends On</label>
+                            <select class="form-select" id="taskDependency">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger me-auto" id="deleteTaskBtn" onclick="deleteTask()" style="display:none">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveTask()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-body d-flex align-items-center">
+                <span id="toastMessage"></span>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="toast"></button>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Sample project data
-        const tasks = [
-            { id: 1, name: 'Project Planning', type: 'group', start: '2026-01-06', end: '2026-01-20' },
-            { id: 2, name: 'Requirements gathering', start: '2026-01-06', end: '2026-01-10', color: 'blue', progress: 100, assignee: 'JD' },
-            { id: 3, name: 'Technical specifications', start: '2026-01-08', end: '2026-01-14', color: 'blue', progress: 75, assignee: 'AS' },
-            { id: 4, name: 'Design approval', start: '2026-01-15', end: '2026-01-15', type: 'milestone' },
-
-            { id: 5, name: 'Development', type: 'group', start: '2026-01-13', end: '2026-02-07' },
-            { id: 6, name: 'Frontend development', start: '2026-01-13', end: '2026-01-28', color: 'green', progress: 40, assignee: 'MK' },
-            { id: 7, name: 'Backend API', start: '2026-01-15', end: '2026-01-30', color: 'purple', progress: 30, assignee: 'JD' },
-            { id: 8, name: 'Database setup', start: '2026-01-13', end: '2026-01-20', color: 'teal', progress: 60, assignee: 'AS' },
-            { id: 9, name: 'Integration', start: '2026-01-28', end: '2026-02-07', color: 'orange', progress: 0, assignee: 'MK' },
-
-            { id: 10, name: 'Testing & Launch', type: 'group', start: '2026-02-02', end: '2026-02-20' },
-            { id: 11, name: 'QA Testing', start: '2026-02-02', end: '2026-02-12', color: 'pink', progress: 0, assignee: 'QA' },
-            { id: 12, name: 'Bug fixes', start: '2026-02-10', end: '2026-02-17', color: 'orange', progress: 0, assignee: 'JD' },
-            { id: 13, name: 'Launch', start: '2026-02-20', end: '2026-02-20', type: 'milestone' },
-        ];
-
         // Config
         const dayWidth = 36;
-        const startDate = new Date('2026-01-05');
-        const endDate = new Date('2026-02-28');
-        const today = new Date('2026-01-07');
+        const rowHeight = 44;
+        const STORAGE_KEY = 'simplegantt_data';
 
-        // Calculate days between dates
+        // State
+        let tasks = [];
+        let startDate = new Date();
+        let endDate = new Date();
+        let today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Default data
+        const defaultTasks = [
+            { id: 1, name: 'Project Planning', type: 'group', start: '2026-01-06', end: '2026-01-20' },
+            { id: 2, name: 'Requirements gathering', start: '2026-01-06', end: '2026-01-10', color: 'blue', progress: 100, assignee: 'JD' },
+            { id: 3, name: 'Technical specifications', start: '2026-01-08', end: '2026-01-14', color: 'blue', progress: 75, assignee: 'AS', dependsOn: 2 },
+            { id: 4, name: 'Design approval', start: '2026-01-15', end: '2026-01-15', type: 'milestone', dependsOn: 3 },
+            { id: 5, name: 'Development', type: 'group', start: '2026-01-13', end: '2026-02-07' },
+            { id: 6, name: 'Frontend development', start: '2026-01-13', end: '2026-01-28', color: 'green', progress: 40, assignee: 'MK' },
+            { id: 7, name: 'Backend API', start: '2026-01-15', end: '2026-01-30', color: 'purple', progress: 30, assignee: 'JD', dependsOn: 4 },
+            { id: 8, name: 'Database setup', start: '2026-01-13', end: '2026-01-20', color: 'teal', progress: 60, assignee: 'AS' },
+            { id: 9, name: 'Integration', start: '2026-01-28', end: '2026-02-07', color: 'orange', progress: 0, assignee: 'MK', dependsOn: 6 },
+            { id: 10, name: 'Testing & Launch', type: 'group', start: '2026-02-02', end: '2026-02-20' },
+            { id: 11, name: 'QA Testing', start: '2026-02-02', end: '2026-02-12', color: 'pink', progress: 0, assignee: 'QA', dependsOn: 9 },
+            { id: 12, name: 'Bug fixes', start: '2026-02-10', end: '2026-02-17', color: 'orange', progress: 0, assignee: 'JD', dependsOn: 11 },
+            { id: 13, name: 'Launch', start: '2026-02-20', end: '2026-02-20', type: 'milestone', dependsOn: 12 },
+        ];
+
+        // Utility functions
         function daysBetween(d1, d2) {
             return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
         }
 
-        // Generate timeline header
+        function formatDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function parseDate(str) {
+            const d = new Date(str + 'T00:00:00');
+            return d;
+        }
+
+        function calculateDateRange() {
+            if (tasks.length === 0) {
+                startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - 7);
+                endDate = new Date(today);
+                endDate.setDate(endDate.getDate() + 60);
+                return;
+            }
+
+            let minDate = parseDate(tasks[0].start);
+            let maxDate = parseDate(tasks[0].end);
+
+            tasks.forEach(t => {
+                const s = parseDate(t.start);
+                const e = parseDate(t.end);
+                if (s < minDate) minDate = s;
+                if (e > maxDate) maxDate = e;
+            });
+
+            startDate = new Date(minDate);
+            startDate.setDate(startDate.getDate() - 7);
+            endDate = new Date(maxDate);
+            endDate.setDate(endDate.getDate() + 14);
+        }
+
+        // Local Storage
+        function saveToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+        }
+
+        function loadFromStorage() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+                tasks = JSON.parse(data);
+            } else {
+                tasks = [...defaultTasks];
+            }
+        }
+
+        // Export/Import
+        function exportData() {
+            const dataStr = JSON.stringify(tasks, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gantt-project.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Project exported successfully!');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    tasks = JSON.parse(e.target.result);
+                    saveToStorage();
+                    render();
+                    showToast('Project imported successfully!');
+                } catch (err) {
+                    showToast('Invalid JSON file!');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function clearAllData() {
+            if (confirm('Are you sure you want to delete all tasks?')) {
+                tasks = [];
+                saveToStorage();
+                render();
+                showToast('All tasks cleared');
+            }
+        }
+
+        // Toast
+        function showToast(message) {
+            document.getElementById('toastMessage').textContent = message;
+            const toast = new bootstrap.Toast(document.getElementById('toast'));
+            toast.show();
+        }
+
+        // Render functions
         function renderTimelineHeader() {
             const header = document.getElementById('timelineHeader');
             let html = '';
-
             let current = new Date(startDate);
+
             while (current <= endDate) {
                 const month = current.toLocaleString('default', { month: 'short' });
                 const year = current.getFullYear();
-
-                // Find days in this month within our range
                 const monthStart = new Date(current);
                 const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
                 const displayEnd = monthEnd > endDate ? endDate : monthEnd;
@@ -471,14 +688,11 @@
                         <div class="timeline-days">${daysHtml}</div>
                     </div>
                 `;
-
                 current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
             }
-
             header.innerHTML = html;
         }
 
-        // Render task list
         function renderTaskList() {
             const list = document.getElementById('taskList');
             let html = '';
@@ -488,31 +702,38 @@
                 const isMilestone = task.type === 'milestone';
 
                 html += `
-                    <div class="task-row ${isGroup ? 'group' : ''}">
+                    <div class="task-row ${isGroup ? 'group' : ''}" data-id="${task.id}">
                         <span class="task-icon">
                             ${isGroup ? '<i class="bi bi-folder"></i>' :
                               isMilestone ? '<i class="bi bi-diamond-fill"></i>' :
                               '<i class="bi bi-check2-square"></i>'}
                         </span>
                         <span class="task-name">${task.name}</span>
-                        ${task.assignee ? `<span class="task-assignee">${task.assignee}</span>` : ''}
+                        <div class="task-actions">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="openTaskModal(${task.id})"><i class="bi bi-pencil"></i></button>
+                        </div>
+                        ${task.assignee ? `<span class="task-assignee">${task.assignee}</span>` : '<span style="width:28px"></span>'}
                     </div>
                 `;
             });
-
             list.innerHTML = html;
         }
 
-        // Render timeline body with bars
         function renderTimelineBody() {
             const body = document.getElementById('timelineBody');
             const totalDays = daysBetween(startDate, endDate) + 1;
 
-            let html = '';
+            // Clear existing content except SVG
+            const svg = document.getElementById('dependenciesLayer');
+            body.innerHTML = '';
+            body.appendChild(svg);
 
-            // Render rows with cells
-            tasks.forEach(task => {
+            // Render rows
+            tasks.forEach((task, index) => {
                 const isGroup = task.type === 'group';
+                const row = document.createElement('div');
+                row.className = `timeline-row ${isGroup ? 'group' : ''}`;
+                row.dataset.id = task.id;
 
                 let cellsHtml = '';
                 for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -523,90 +744,353 @@
                     let classes = 'timeline-cell';
                     if (isWeekend) classes += ' weekend';
                     if (isToday) classes += ' today';
-
                     cellsHtml += `<div class="${classes}"></div>`;
                 }
-
-                html += `<div class="timeline-row ${isGroup ? 'group' : ''}">${cellsHtml}</div>`;
+                row.innerHTML = cellsHtml;
+                body.appendChild(row);
             });
 
-            body.innerHTML = html;
             body.style.width = `${totalDays * dayWidth}px`;
 
             // Render bars
             tasks.forEach((task, index) => {
-                const taskStart = new Date(task.start);
-                const taskEnd = new Date(task.end);
+                const taskStart = parseDate(task.start);
+                const taskEnd = parseDate(task.end);
                 const startOffset = daysBetween(startDate, taskStart) * dayWidth;
                 const duration = daysBetween(taskStart, taskEnd) + 1;
                 const width = duration * dayWidth - 4;
+                const top = index * rowHeight;
 
                 if (task.type === 'milestone') {
-                    const milestone = document.createElement('div');
-                    milestone.className = 'milestone';
-                    milestone.style.left = `${startOffset + (dayWidth/2) - 10}px`;
-                    milestone.style.top = `${index * 44 + 12}px`;
-                    body.appendChild(milestone);
+                    const el = document.createElement('div');
+                    el.className = 'milestone';
+                    el.style.left = `${startOffset + (dayWidth/2) - 10}px`;
+                    el.style.top = `${top + 12}px`;
+                    el.dataset.id = task.id;
+                    el.ondblclick = () => openTaskModal(task.id);
+                    body.appendChild(el);
                 } else if (task.type === 'group') {
                     const bar = document.createElement('div');
                     bar.className = 'gantt-bar group-bar';
                     bar.style.left = `${startOffset + 2}px`;
                     bar.style.width = `${width}px`;
-                    bar.style.top = `${index * 44 + 18}px`;
+                    bar.style.top = `${top + 18}px`;
+                    bar.dataset.id = task.id;
                     body.appendChild(bar);
                 } else {
                     const bar = document.createElement('div');
-                    bar.className = `gantt-bar ${task.color}`;
+                    bar.className = `gantt-bar ${task.color || 'blue'}`;
                     bar.style.left = `${startOffset + 2}px`;
                     bar.style.width = `${width}px`;
-                    bar.style.top = `${index * 44 + 10}px`;
+                    bar.style.top = `${top + 10}px`;
+                    bar.dataset.id = task.id;
 
+                    let innerHTML = '';
                     if (task.progress > 0) {
-                        bar.innerHTML = `
-                            <div class="progress-fill" style="width: ${task.progress}%"></div>
-                            <span class="bar-label">${task.name}</span>
-                        `;
-                    } else {
-                        bar.innerHTML = `<span class="bar-label">${task.name}</span>`;
+                        innerHTML += `<div class="progress-fill" style="width: ${task.progress}%"></div>`;
                     }
+                    innerHTML += `<span class="bar-label">${task.name}</span>`;
+                    innerHTML += `<div class="resize-handle left"></div>`;
+                    innerHTML += `<div class="resize-handle right"></div>`;
+                    bar.innerHTML = innerHTML;
 
+                    // Drag & resize
+                    setupDragAndResize(bar, task);
+                    bar.ondblclick = () => openTaskModal(task.id);
                     body.appendChild(bar);
                 }
             });
 
-            // Add today line
+            // Today line
             const todayOffset = daysBetween(startDate, today) * dayWidth + (dayWidth / 2);
-            const todayLine = document.createElement('div');
-            todayLine.className = 'today-line';
-            todayLine.style.left = `${todayOffset}px`;
-            body.appendChild(todayLine);
+            if (todayOffset >= 0 && todayOffset <= totalDays * dayWidth) {
+                const todayLine = document.createElement('div');
+                todayLine.className = 'today-line';
+                todayLine.style.left = `${todayOffset}px`;
+                todayLine.style.height = `${tasks.length * rowHeight}px`;
+                body.appendChild(todayLine);
+            }
 
-            // Set wrapper width
             document.getElementById('timelineWrapper').style.width = `${totalDays * dayWidth}px`;
+
+            // Render dependencies
+            renderDependencies();
+        }
+
+        function renderDependencies() {
+            const svg = document.getElementById('dependenciesLayer');
+            const totalDays = daysBetween(startDate, endDate) + 1;
+            svg.setAttribute('width', totalDays * dayWidth);
+            svg.setAttribute('height', tasks.length * rowHeight);
+
+            // Remove old paths
+            svg.querySelectorAll('path').forEach(p => p.remove());
+
+            tasks.forEach((task, index) => {
+                if (!task.dependsOn) return;
+
+                const depIndex = tasks.findIndex(t => t.id === task.dependsOn);
+                if (depIndex === -1) return;
+
+                const depTask = tasks[depIndex];
+                const depEnd = parseDate(depTask.end);
+                const taskStart = parseDate(task.start);
+
+                const x1 = daysBetween(startDate, depEnd) * dayWidth + dayWidth;
+                const y1 = depIndex * rowHeight + rowHeight / 2;
+                const x2 = daysBetween(startDate, taskStart) * dayWidth;
+                const y2 = index * rowHeight + rowHeight / 2;
+
+                const midX = (x1 + x2) / 2;
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('class', 'dependency-line');
+                path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+                svg.appendChild(path);
+            });
+        }
+
+        // Drag and resize
+        function setupDragAndResize(bar, task) {
+            let isDragging = false;
+            let isResizing = false;
+            let resizeDir = null;
+            let startX = 0;
+            let origLeft = 0;
+            let origWidth = 0;
+
+            bar.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('resize-handle')) {
+                    isResizing = true;
+                    resizeDir = e.target.classList.contains('left') ? 'left' : 'right';
+                } else {
+                    isDragging = true;
+                }
+                bar.classList.add('dragging');
+                startX = e.clientX;
+                origLeft = parseInt(bar.style.left);
+                origWidth = parseInt(bar.style.width);
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging && !isResizing) return;
+
+                const dx = e.clientX - startX;
+                const daysDelta = Math.round(dx / dayWidth);
+
+                if (isDragging) {
+                    bar.style.left = `${origLeft + daysDelta * dayWidth}px`;
+                } else if (isResizing) {
+                    if (resizeDir === 'right') {
+                        const newWidth = origWidth + daysDelta * dayWidth;
+                        if (newWidth >= dayWidth) {
+                            bar.style.width = `${newWidth}px`;
+                        }
+                    } else {
+                        const newWidth = origWidth - daysDelta * dayWidth;
+                        if (newWidth >= dayWidth) {
+                            bar.style.left = `${origLeft + daysDelta * dayWidth}px`;
+                            bar.style.width = `${newWidth}px`;
+                        }
+                    }
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!isDragging && !isResizing) return;
+
+                bar.classList.remove('dragging');
+
+                // Calculate new dates
+                const newLeft = parseInt(bar.style.left) - 2;
+                const newWidth = parseInt(bar.style.width) + 4;
+                const startDays = Math.round(newLeft / dayWidth);
+                const durationDays = Math.round(newWidth / dayWidth);
+
+                const newStart = new Date(startDate);
+                newStart.setDate(newStart.getDate() + startDays);
+                const newEnd = new Date(newStart);
+                newEnd.setDate(newEnd.getDate() + durationDays - 1);
+
+                task.start = formatDate(newStart);
+                task.end = formatDate(newEnd);
+                saveToStorage();
+
+                isDragging = false;
+                isResizing = false;
+                resizeDir = null;
+
+                renderDependencies();
+            });
+        }
+
+        // Task Modal
+        function openTaskModal(id = null) {
+            const modal = new bootstrap.Modal(document.getElementById('taskModal'));
+            const isEdit = id !== null;
+
+            document.getElementById('taskModalTitle').textContent = isEdit ? 'Edit Task' : 'Add Task';
+            document.getElementById('deleteTaskBtn').style.display = isEdit ? 'block' : 'none';
+
+            // Populate dependency dropdown
+            const depSelect = document.getElementById('taskDependency');
+            depSelect.innerHTML = '<option value="">None</option>';
+            tasks.forEach(t => {
+                if (t.id !== id && t.type !== 'group') {
+                    depSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+                }
+            });
+
+            if (isEdit) {
+                const task = tasks.find(t => t.id === id);
+                document.getElementById('taskId').value = id;
+                document.getElementById('taskName').value = task.name;
+                document.getElementById('taskType').value = task.type || 'task';
+                document.getElementById('taskStart').value = task.start;
+                document.getElementById('taskEnd').value = task.end;
+                document.getElementById('taskAssignee').value = task.assignee || '';
+                document.getElementById('taskProgress').value = task.progress || 0;
+                document.getElementById('progressValue').textContent = task.progress || 0;
+                document.getElementById('taskDependency').value = task.dependsOn || '';
+
+                // Set color
+                document.querySelectorAll('.color-option').forEach(el => {
+                    el.classList.toggle('selected', el.dataset.color === (task.color || 'blue'));
+                });
+            } else {
+                document.getElementById('taskId').value = '';
+                document.getElementById('taskName').value = '';
+                document.getElementById('taskType').value = 'task';
+                document.getElementById('taskStart').value = formatDate(today);
+                const nextWeek = new Date(today);
+                nextWeek.setDate(nextWeek.getDate() + 7);
+                document.getElementById('taskEnd').value = formatDate(nextWeek);
+                document.getElementById('taskAssignee').value = '';
+                document.getElementById('taskProgress').value = 0;
+                document.getElementById('progressValue').textContent = 0;
+                document.getElementById('taskDependency').value = '';
+                document.querySelectorAll('.color-option').forEach(el => {
+                    el.classList.toggle('selected', el.dataset.color === 'blue');
+                });
+            }
+
+            toggleTaskFields();
+            modal.show();
+        }
+
+        function toggleTaskFields() {
+            const type = document.getElementById('taskType').value;
+            const taskFields = document.getElementById('taskFields');
+            const endDateCol = document.getElementById('endDateCol');
+
+            taskFields.style.display = type === 'task' ? 'block' : 'none';
+            endDateCol.style.display = type === 'milestone' ? 'none' : 'block';
+
+            if (type === 'milestone') {
+                document.getElementById('taskEnd').value = document.getElementById('taskStart').value;
+            }
+        }
+
+        function saveTask() {
+            const id = document.getElementById('taskId').value;
+            const name = document.getElementById('taskName').value.trim();
+            const type = document.getElementById('taskType').value;
+            const start = document.getElementById('taskStart').value;
+            let end = document.getElementById('taskEnd').value;
+
+            if (!name || !start) {
+                showToast('Please fill in required fields');
+                return;
+            }
+
+            if (type === 'milestone') end = start;
+
+            const taskData = {
+                id: id ? parseInt(id) : Date.now(),
+                name,
+                type: type === 'task' ? undefined : type,
+                start,
+                end,
+            };
+
+            if (type === 'task') {
+                taskData.assignee = document.getElementById('taskAssignee').value.trim() || undefined;
+                taskData.progress = parseInt(document.getElementById('taskProgress').value);
+                taskData.color = document.querySelector('.color-option.selected')?.dataset.color || 'blue';
+                const dep = document.getElementById('taskDependency').value;
+                if (dep) taskData.dependsOn = parseInt(dep);
+            }
+
+            if (id) {
+                const index = tasks.findIndex(t => t.id === parseInt(id));
+                tasks[index] = taskData;
+            } else {
+                tasks.push(taskData);
+            }
+
+            saveToStorage();
+            bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide();
+            render();
+            showToast(id ? 'Task updated' : 'Task created');
+        }
+
+        function deleteTask() {
+            const id = parseInt(document.getElementById('taskId').value);
+            if (confirm('Delete this task?')) {
+                tasks = tasks.filter(t => t.id !== id);
+                // Remove dependencies to this task
+                tasks.forEach(t => {
+                    if (t.dependsOn === id) delete t.dependsOn;
+                });
+                saveToStorage();
+                bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide();
+                render();
+                showToast('Task deleted');
+            }
+        }
+
+        // Color picker
+        document.getElementById('colorPicker').addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-option')) {
+                document.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
+                e.target.classList.add('selected');
+            }
+        });
+
+        // Scroll to today
+        function scrollToToday() {
+            const timelineArea = document.getElementById('timelineArea');
+            const todayOffset = daysBetween(startDate, today) * dayWidth - timelineArea.clientWidth / 2;
+            timelineArea.scrollLeft = Math.max(0, todayOffset);
+        }
+
+        // Sync scroll
+        function setupScrollSync() {
+            const taskList = document.getElementById('taskList');
+            const timelineArea = document.getElementById('timelineArea');
+
+            taskList.addEventListener('scroll', () => {
+                timelineArea.scrollTop = taskList.scrollTop;
+            });
+
+            timelineArea.addEventListener('scroll', () => {
+                taskList.scrollTop = timelineArea.scrollTop;
+            });
+        }
+
+        // Main render
+        function render() {
+            calculateDateRange();
+            renderTimelineHeader();
+            renderTaskList();
+            renderTimelineBody();
         }
 
         // Initialize
-        renderTimelineHeader();
-        renderTaskList();
-        renderTimelineBody();
-
-        // Sync scroll between task list and timeline
-        const taskList = document.getElementById('taskList');
-        const timelineArea = document.getElementById('timelineArea');
-
-        taskList.addEventListener('scroll', () => {
-            timelineArea.scrollTop = taskList.scrollTop;
-        });
-
-        timelineArea.addEventListener('scroll', () => {
-            taskList.scrollTop = timelineArea.scrollTop;
-        });
-
-        // Scroll to today on load
-        setTimeout(() => {
-            const todayOffset = daysBetween(startDate, today) * dayWidth - 200;
-            timelineArea.scrollLeft = Math.max(0, todayOffset);
-        }, 100);
+        loadFromStorage();
+        render();
+        setupScrollSync();
+        setTimeout(scrollToToday, 100);
     </script>
 </body>
 </html>
