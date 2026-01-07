@@ -1133,7 +1133,7 @@
             svg += `<line x1="${sidebarWidth}" y1="0" x2="${sidebarWidth}" y2="${height}" stroke="#e2e8f0" stroke-width="2"/>`;
 
             // Sidebar header
-            svg += `<text x="16" y="30" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748b">TASK NAME</text>`;
+            svg += `<text x="16" y="30" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#64748b">TASK NAME</text>`;
 
             // Timeline header background
             svg += `<rect x="${sidebarWidth}" y="0" width="${totalDays * dayWidth}" height="${headerHeight}" fill="white"/>`;
@@ -1170,12 +1170,12 @@
                 for (let d = new Date(monthStart); d <= displayEnd; d.setDate(d.getDate() + 1)) {
                     const dayNum = d.getDate();
                     const dayX = xOffset + dayCount * dayWidth;
-                    svg += `<text x="${dayX + dayWidth/2}" y="${headerHeight - 8}" font-family="system-ui, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">${dayNum}</text>`;
+                    svg += `<text x="${dayX + dayWidth/2}" y="${headerHeight - 8}" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">${dayNum}</text>`;
                     dayCount++;
                 }
 
                 const monthWidth = dayCount * dayWidth;
-                svg += `<text x="${xOffset + monthWidth/2}" y="18" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748b" text-anchor="middle">${month} ${year}</text>`;
+                svg += `<text x="${xOffset + monthWidth/2}" y="18" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#64748b" text-anchor="middle">${month} ${year}</text>`;
                 svg += `<line x1="${xOffset + monthWidth}" y1="0" x2="${xOffset + monthWidth}" y2="${headerHeight}" stroke="#e2e8f0"/>`;
 
                 xOffset += monthWidth;
@@ -1188,10 +1188,16 @@
                 svg += `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="#f1f5f9"/>`;
             }
 
+            // Helper to escape XML special characters
+            function escapeXml(str) {
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
             // Draw task rows
             tasks.forEach((task, index) => {
                 const y = headerHeight + index * rowHeight;
                 const isGroup = task.type === 'group';
+                const isMilestone = task.type === 'milestone';
 
                 // Row background for groups
                 if (isGroup) {
@@ -1199,14 +1205,29 @@
                     svg += `<rect x="${sidebarWidth}" y="${y}" width="${totalDays * dayWidth}" height="${rowHeight}" fill="#f8fafc"/>`;
                 }
 
-                // Task name in sidebar
-                const icon = isGroup ? '📁' : (task.type === 'milestone' ? '◆' : '☐');
-                svg += `<text x="16" y="${y + rowHeight/2 + 4}" font-family="system-ui, sans-serif" font-size="12" fill="#1e293b" ${isGroup ? 'font-weight="600"' : ''}>${icon} ${task.name}</text>`;
+                // Draw icon as SVG shape instead of emoji
+                const iconX = 16;
+                const iconY = y + rowHeight/2;
+                if (isGroup) {
+                    // Folder icon
+                    svg += `<rect x="${iconX}" y="${iconY - 5}" width="12" height="10" fill="#94a3b8" rx="1"/>`;
+                    svg += `<rect x="${iconX}" y="${iconY - 7}" width="6" height="3" fill="#94a3b8" rx="1"/>`;
+                } else if (isMilestone) {
+                    // Diamond icon
+                    svg += `<rect x="${iconX + 3}" y="${iconY - 5}" width="8" height="8" fill="#f97316" transform="rotate(45 ${iconX + 7} ${iconY - 1})"/>`;
+                } else {
+                    // Checkbox icon
+                    svg += `<rect x="${iconX}" y="${iconY - 6}" width="12" height="12" fill="none" stroke="#94a3b8" stroke-width="1.5" rx="2"/>`;
+                }
+
+                // Task name in sidebar (escaped)
+                const taskName = escapeXml(task.name);
+                svg += `<text x="34" y="${y + rowHeight/2 + 4}" font-family="Arial, sans-serif" font-size="12" fill="#1e293b" ${isGroup ? 'font-weight="600"' : ''}>${taskName}</text>`;
 
                 // Assignee
                 if (task.assignee) {
                     svg += `<circle cx="${sidebarWidth - 24}" cy="${y + rowHeight/2}" r="12" fill="#818cf8"/>`;
-                    svg += `<text x="${sidebarWidth - 24}" y="${y + rowHeight/2 + 4}" font-family="system-ui, sans-serif" font-size="9" fill="white" text-anchor="middle" font-weight="600">${task.assignee}</text>`;
+                    svg += `<text x="${sidebarWidth - 24}" y="${y + rowHeight/2 + 4}" font-family="Arial, sans-serif" font-size="9" fill="white" text-anchor="middle" font-weight="600">${escapeXml(task.assignee)}</text>`;
                 }
             });
 
@@ -1253,7 +1274,7 @@
                     if (task.progress > 0) {
                         svg += `<rect x="${x}" y="${y + 10}" width="${barWidth * task.progress / 100}" height="24" fill="rgba(255,255,255,0.25)" rx="4"/>`;
                     }
-                    svg += `<text x="${x + 8}" y="${y + 26}" font-family="system-ui, sans-serif" font-size="11" fill="white" font-weight="500">${task.name}</text>`;
+                    svg += `<text x="${x + 8}" y="${y + 26}" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="500">${escapeXml(task.name)}</text>`;
                 }
             });
 
@@ -1262,7 +1283,7 @@
             if (todayOffset >= 0 && todayOffset <= totalDays * dayWidth) {
                 const tx = sidebarWidth + todayOffset;
                 svg += `<line x1="${tx}" y1="${headerHeight}" x2="${tx}" y2="${height}" stroke="#ef4444" stroke-width="2"/>`;
-                svg += `<text x="${tx}" y="${headerHeight - 5}" font-family="system-ui, sans-serif" font-size="9" fill="#ef4444" text-anchor="middle" font-weight="600">Today</text>`;
+                svg += `<text x="${tx}" y="${headerHeight - 5}" font-family="Arial, sans-serif" font-size="9" fill="#ef4444" text-anchor="middle" font-weight="600">Today</text>`;
             }
 
             svg += `</svg>`;
