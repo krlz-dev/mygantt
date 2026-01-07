@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleGantt</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --sidebar-width: 300px;
+            --row-height: 44px;
+            --header-height: 60px;
+            --timeline-header: 50px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .app-header {
+            height: var(--header-height);
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+
+        .app-header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0;
+        }
+
+        .app-header .btn-add {
+            background: var(--primary);
+            border: none;
+            padding: 8px 16px;
+            font-size: 0.875rem;
+        }
+
+        .app-header .btn-add:hover {
+            background: var(--primary-light);
+        }
+
+        /* Main Container */
+        .gantt-container {
+            display: flex;
+            margin-top: var(--header-height);
+            height: calc(100vh - var(--header-height));
+        }
+
+        /* Task Sidebar */
+        .task-sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: white;
+            border-right: 2px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            height: var(--timeline-header);
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            font-weight: 600;
+            color: #64748b;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .task-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .task-row {
+            height: var(--row-height);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .task-row:hover {
+            background: #f8fafc;
+        }
+
+        .task-row.group {
+            background: #f1f5f9;
+            font-weight: 600;
+        }
+
+        .task-row .task-icon {
+            width: 20px;
+            margin-right: 8px;
+            color: #94a3b8;
+        }
+
+        .task-row .task-name {
+            flex: 1;
+            font-size: 0.875rem;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .task-row .task-assignee {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        /* Timeline Area */
+        .timeline-area {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .timeline-wrapper {
+            min-width: 100%;
+            position: relative;
+        }
+
+        /* Timeline Header */
+        .timeline-header {
+            height: var(--timeline-header);
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .timeline-month {
+            text-align: center;
+            border-right: 1px solid #e2e8f0;
+        }
+
+        .timeline-month-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            padding: 4px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .timeline-days {
+            display: flex;
+        }
+
+        .timeline-day {
+            width: 36px;
+            min-width: 36px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            padding: 4px 0;
+        }
+
+        .timeline-day.weekend {
+            background: #fafafa;
+            color: #cbd5e1;
+        }
+
+        .timeline-day.today {
+            background: #eef2ff;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Timeline Body */
+        .timeline-body {
+            position: relative;
+        }
+
+        .timeline-row {
+            height: var(--row-height);
+            border-bottom: 1px solid #f1f5f9;
+            position: relative;
+            display: flex;
+        }
+
+        .timeline-row.group {
+            background: #f8fafc;
+        }
+
+        .timeline-cell {
+            width: 36px;
+            min-width: 36px;
+            border-right: 1px solid #f1f5f9;
+        }
+
+        .timeline-cell.weekend {
+            background: #fafafa;
+        }
+
+        .timeline-cell.today {
+            background: #eef2ff;
+        }
+
+        /* Gantt Bars */
+        .gantt-bar {
+            position: absolute;
+            height: 24px;
+            top: 10px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            font-size: 0.75rem;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            z-index: 5;
+        }
+
+        .gantt-bar:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .gantt-bar.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .gantt-bar.green { background: linear-gradient(135deg, #22c55e, #16a34a); }
+        .gantt-bar.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .gantt-bar.orange { background: linear-gradient(135deg, #f97316, #ea580c); }
+        .gantt-bar.pink { background: linear-gradient(135deg, #ec4899, #db2777); }
+        .gantt-bar.teal { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+
+        .gantt-bar .progress-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.25);
+            border-radius: 4px 0 0 4px;
+        }
+
+        .gantt-bar .bar-label {
+            position: relative;
+            z-index: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Group Bar */
+        .gantt-bar.group-bar {
+            height: 8px;
+            top: 18px;
+            background: #475569;
+            border-radius: 2px;
+        }
+
+        .gantt-bar.group-bar::before,
+        .gantt-bar.group-bar::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            width: 8px;
+            height: 8px;
+            background: #475569;
+        }
+
+        .gantt-bar.group-bar::before {
+            left: 0;
+            clip-path: polygon(0 0, 100% 0, 50% 100%);
+        }
+
+        .gantt-bar.group-bar::after {
+            right: 0;
+            clip-path: polygon(0 0, 100% 0, 50% 100%);
+        }
+
+        /* Milestone */
+        .milestone {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 12px;
+            background: #f97316;
+            transform: rotate(45deg);
+            border-radius: 3px;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        /* Today Line */
+        .today-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #ef4444;
+            z-index: 6;
+        }
+
+        .today-line::before {
+            content: 'Today';
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: #ef4444;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <h1><i class="bi bi-bar-chart-steps me-2"></i>SimpleGantt</h1>
+        <div class="ms-auto d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-calendar3"></i> Today
+            </button>
+            <button class="btn btn-add btn-primary btn-sm text-white">
+                <i class="bi bi-plus-lg me-1"></i> Add Task
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Gantt Container -->
+    <div class="gantt-container">
+        <!-- Task Sidebar -->
+        <div class="task-sidebar">
+            <div class="sidebar-header">
+                <span>Task Name</span>
+                <span class="ms-auto">Assignee</span>
+            </div>
+            <div class="task-list" id="taskList">
+                <!-- Tasks populated by JS -->
+            </div>
+        </div>
+
+        <!-- Timeline Area -->
+        <div class="timeline-area" id="timelineArea">
+            <div class="timeline-wrapper" id="timelineWrapper">
+                <div class="timeline-header" id="timelineHeader">
+                    <!-- Header populated by JS -->
+                </div>
+                <div class="timeline-body" id="timelineBody">
+                    <!-- Rows and bars populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Sample project data
+        const tasks = [
+            { id: 1, name: 'Project Planning', type: 'group', start: '2026-01-06', end: '2026-01-20' },
+            { id: 2, name: 'Requirements gathering', start: '2026-01-06', end: '2026-01-10', color: 'blue', progress: 100, assignee: 'JD' },
+            { id: 3, name: 'Technical specifications', start: '2026-01-08', end: '2026-01-14', color: 'blue', progress: 75, assignee: 'AS' },
+            { id: 4, name: 'Design approval', start: '2026-01-15', end: '2026-01-15', type: 'milestone' },
+
+            { id: 5, name: 'Development', type: 'group', start: '2026-01-13', end: '2026-02-07' },
+            { id: 6, name: 'Frontend development', start: '2026-01-13', end: '2026-01-28', color: 'green', progress: 40, assignee: 'MK' },
+            { id: 7, name: 'Backend API', start: '2026-01-15', end: '2026-01-30', color: 'purple', progress: 30, assignee: 'JD' },
+            { id: 8, name: 'Database setup', start: '2026-01-13', end: '2026-01-20', color: 'teal', progress: 60, assignee: 'AS' },
+            { id: 9, name: 'Integration', start: '2026-01-28', end: '2026-02-07', color: 'orange', progress: 0, assignee: 'MK' },
+
+            { id: 10, name: 'Testing & Launch', type: 'group', start: '2026-02-02', end: '2026-02-20' },
+            { id: 11, name: 'QA Testing', start: '2026-02-02', end: '2026-02-12', color: 'pink', progress: 0, assignee: 'QA' },
+            { id: 12, name: 'Bug fixes', start: '2026-02-10', end: '2026-02-17', color: 'orange', progress: 0, assignee: 'JD' },
+            { id: 13, name: 'Launch', start: '2026-02-20', end: '2026-02-20', type: 'milestone' },
+        ];
+
+        // Config
+        const dayWidth = 36;
+        const startDate = new Date('2026-01-05');
+        const endDate = new Date('2026-02-28');
+        const today = new Date('2026-01-07');
+
+        // Calculate days between dates
+        function daysBetween(d1, d2) {
+            return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+
+        // Generate timeline header
+        function renderTimelineHeader() {
+            const header = document.getElementById('timelineHeader');
+            let html = '';
+
+            let current = new Date(startDate);
+            while (current <= endDate) {
+                const month = current.toLocaleString('default', { month: 'short' });
+                const year = current.getFullYear();
+
+                // Find days in this month within our range
+                const monthStart = new Date(current);
+                const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+                const displayEnd = monthEnd > endDate ? endDate : monthEnd;
+
+                let daysHtml = '';
+                let dayCount = 0;
+
+                for (let d = new Date(monthStart); d <= displayEnd; d.setDate(d.getDate() + 1)) {
+                    const dayNum = d.getDate();
+                    const dayOfWeek = d.getDay();
+                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                    const isToday = d.toDateString() === today.toDateString();
+
+                    let classes = 'timeline-day';
+                    if (isWeekend) classes += ' weekend';
+                    if (isToday) classes += ' today';
+
+                    daysHtml += `<div class="${classes}">${dayNum}</div>`;
+                    dayCount++;
+                }
+
+                html += `
+                    <div class="timeline-month" style="width: ${dayCount * dayWidth}px">
+                        <div class="timeline-month-name">${month} ${year}</div>
+                        <div class="timeline-days">${daysHtml}</div>
+                    </div>
+                `;
+
+                current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+            }
+
+            header.innerHTML = html;
+        }
+
+        // Render task list
+        function renderTaskList() {
+            const list = document.getElementById('taskList');
+            let html = '';
+
+            tasks.forEach(task => {
+                const isGroup = task.type === 'group';
+                const isMilestone = task.type === 'milestone';
+
+                html += `
+                    <div class="task-row ${isGroup ? 'group' : ''}">
+                        <span class="task-icon">
+                            ${isGroup ? '<i class="bi bi-folder"></i>' :
+                              isMilestone ? '<i class="bi bi-diamond-fill"></i>' :
+                              '<i class="bi bi-check2-square"></i>'}
+                        </span>
+                        <span class="task-name">${task.name}</span>
+                        ${task.assignee ? `<span class="task-assignee">${task.assignee}</span>` : ''}
+                    </div>
+                `;
+            });
+
+            list.innerHTML = html;
+        }
+
+        // Render timeline body with bars
+        function renderTimelineBody() {
+            const body = document.getElementById('timelineBody');
+            const totalDays = daysBetween(startDate, endDate) + 1;
+
+            let html = '';
+
+            // Render rows with cells
+            tasks.forEach(task => {
+                const isGroup = task.type === 'group';
+
+                let cellsHtml = '';
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    const dayOfWeek = d.getDay();
+                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                    const isToday = d.toDateString() === today.toDateString();
+
+                    let classes = 'timeline-cell';
+                    if (isWeekend) classes += ' weekend';
+                    if (isToday) classes += ' today';
+
+                    cellsHtml += `<div class="${classes}"></div>`;
+                }
+
+                html += `<div class="timeline-row ${isGroup ? 'group' : ''}">${cellsHtml}</div>`;
+            });
+
+            body.innerHTML = html;
+            body.style.width = `${totalDays * dayWidth}px`;
+
+            // Render bars
+            tasks.forEach((task, index) => {
+                const taskStart = new Date(task.start);
+                const taskEnd = new Date(task.end);
+                const startOffset = daysBetween(startDate, taskStart) * dayWidth;
+                const duration = daysBetween(taskStart, taskEnd) + 1;
+                const width = duration * dayWidth - 4;
+
+                if (task.type === 'milestone') {
+                    const milestone = document.createElement('div');
+                    milestone.className = 'milestone';
+                    milestone.style.left = `${startOffset + (dayWidth/2) - 10}px`;
+                    milestone.style.top = `${index * 44 + 12}px`;
+                    body.appendChild(milestone);
+                } else if (task.type === 'group') {
+                    const bar = document.createElement('div');
+                    bar.className = 'gantt-bar group-bar';
+                    bar.style.left = `${startOffset + 2}px`;
+                    bar.style.width = `${width}px`;
+                    bar.style.top = `${index * 44 + 18}px`;
+                    body.appendChild(bar);
+                } else {
+                    const bar = document.createElement('div');
+                    bar.className = `gantt-bar ${task.color}`;
+                    bar.style.left = `${startOffset + 2}px`;
+                    bar.style.width = `${width}px`;
+                    bar.style.top = `${index * 44 + 10}px`;
+
+                    if (task.progress > 0) {
+                        bar.innerHTML = `
+                            <div class="progress-fill" style="width: ${task.progress}%"></div>
+                            <span class="bar-label">${task.name}</span>
+                        `;
+                    } else {
+                        bar.innerHTML = `<span class="bar-label">${task.name}</span>`;
+                    }
+
+                    body.appendChild(bar);
+                }
+            });
+
+            // Add today line
+            const todayOffset = daysBetween(startDate, today) * dayWidth + (dayWidth / 2);
+            const todayLine = document.createElement('div');
+            todayLine.className = 'today-line';
+            todayLine.style.left = `${todayOffset}px`;
+            body.appendChild(todayLine);
+
+            // Set wrapper width
+            document.getElementById('timelineWrapper').style.width = `${totalDays * dayWidth}px`;
+        }
+
+        // Initialize
+        renderTimelineHeader();
+        renderTaskList();
+        renderTimelineBody();
+
+        // Sync scroll between task list and timeline
+        const taskList = document.getElementById('taskList');
+        const timelineArea = document.getElementById('timelineArea');
+
+        taskList.addEventListener('scroll', () => {
+            timelineArea.scrollTop = taskList.scrollTop;
+        });
+
+        timelineArea.addEventListener('scroll', () => {
+            taskList.scrollTop = timelineArea.scrollTop;
+        });
+
+        // Scroll to today on load
+        setTimeout(() => {
+            const todayOffset = daysBetween(startDate, today) * dayWidth - 200;
+            timelineArea.scrollLeft = Math.max(0, todayOffset);
+        }, 100);
+    </script>
+</body>
+</html>
