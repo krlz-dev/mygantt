@@ -57,6 +57,11 @@
             background: var(--primary-light);
         }
 
+        .app-header .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
         /* Main Container */
         .gantt-container {
             display: flex;
@@ -67,11 +72,33 @@
         /* Task Sidebar */
         .task-sidebar {
             width: var(--sidebar-width);
-            min-width: var(--sidebar-width);
+            min-width: 200px;
+            max-width: 600px;
             background: white;
             border-right: 2px solid #e2e8f0;
             display: flex;
             flex-direction: column;
+            position: relative;
+        }
+
+        .sidebar-resize-handle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 6px;
+            height: 100%;
+            cursor: ew-resize;
+            background: transparent;
+            z-index: 10;
+            transition: background 0.2s;
+        }
+
+        .sidebar-resize-handle:hover {
+            background: #818cf8;
+        }
+
+        .sidebar-resize-handle:active {
+            background: #4f46e5;
         }
 
         .sidebar-header {
@@ -183,7 +210,7 @@
         .timeline-days { display: flex; }
 
         .timeline-day {
-            width: 36px;
+            flex: 1;
             min-width: 36px;
             text-align: center;
             font-size: 0.7rem;
@@ -207,7 +234,7 @@
         .timeline-row.group { background: #f8fafc; }
 
         .timeline-cell {
-            width: 36px;
+            flex: 1;
             min-width: 36px;
             border-right: 1px solid #f1f5f9;
         }
@@ -392,6 +419,25 @@
     <header class="app-header">
         <h1><i class="bi bi-bar-chart-steps me-2"></i>SimpleGantt</h1>
         <div class="ms-auto d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="undoBtn" onclick="undo()" title="Undo (Ctrl+Z)" disabled>
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="redoBtn" onclick="redo()" title="Redo (Ctrl+Y)" disabled>
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" id="viewModeBtn">
+                    <i class="bi bi-calendar-range"></i> <span id="viewModeLabel">Days</span>
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="changeView('days')">Days</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="changeView('weeks')">Weeks</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="changeView('months')">Months</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="changeView('quarters')">Quarters</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="changeView('semesters')">Semesters</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="changeView('years')">Years</a></li>
+                </ul>
+            </div>
             <button class="btn btn-outline-secondary btn-sm" onclick="scrollToToday()">
                 <i class="bi bi-calendar3"></i> Today
             </button>
@@ -420,12 +466,13 @@
 
     <!-- Main Gantt Container -->
     <div class="gantt-container">
-        <div class="task-sidebar">
+        <div class="task-sidebar" id="taskSidebar">
             <div class="sidebar-header">
                 <span>Task Name</span>
                 <span class="ms-auto">Assignee</span>
             </div>
             <div class="task-list" id="taskList"></div>
+            <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
         </div>
 
         <div class="timeline-area" id="timelineArea">
@@ -531,6 +578,150 @@
         const dayWidth = 36;
         const rowHeight = 44;
         const STORAGE_KEY = 'simplegantt_data';
+        const SETTINGS_KEY = 'simplegantt_settings';
+
+        // View configurations - defines how each view scale works
+        const viewConfig = {
+            days: {
+                label: 'Days',
+                cellWidth: 36,
+                getUnits: (start, end) => {
+                    const units = [];
+                    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                        units.push({
+                            date: new Date(d),
+                            label: d.getDate().toString(),
+                            isWeekend: d.getDay() === 0 || d.getDay() === 6,
+                            isToday: d.toDateString() === today.toDateString(),
+                            month: d.toLocaleString('default', { month: 'short' }),
+                            year: d.getFullYear()
+                        });
+                    }
+                    return units;
+                },
+                getDuration: (start, end) => daysBetween(start, end) + 1
+            },
+            weeks: {
+                label: 'Weeks',
+                cellWidth: 60,
+                getUnits: (start, end) => {
+                    const units = [];
+                    let current = new Date(start);
+                    // Start from beginning of week (Monday)
+                    current.setDate(current.getDate() - (current.getDay() || 7) + 1);
+
+                    while (current <= end) {
+                        const weekEnd = new Date(current);
+                        weekEnd.setDate(weekEnd.getDate() + 6);
+                        const weekNum = getWeekNumber(current);
+
+                        units.push({
+                            date: new Date(current),
+                            endDate: weekEnd,
+                            label: `W${weekNum}`,
+                            month: current.toLocaleString('default', { month: 'short' }),
+                            year: current.getFullYear()
+                        });
+                        current.setDate(current.getDate() + 7);
+                    }
+                    return units;
+                },
+                getDuration: (start, end) => {
+                    const weeks = Math.ceil(daysBetween(start, end) / 7);
+                    return weeks;
+                }
+            },
+            months: {
+                label: 'Months',
+                cellWidth: 80,
+                getUnits: (start, end) => {
+                    const units = [];
+                    let current = new Date(start.getFullYear(), start.getMonth(), 1);
+
+                    while (current <= end) {
+                        units.push({
+                            date: new Date(current),
+                            label: current.toLocaleString('default', { month: 'short' }),
+                            year: current.getFullYear()
+                        });
+                        current.setMonth(current.getMonth() + 1);
+                    }
+                    return units;
+                },
+                getDuration: (start, end) => {
+                    return (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth() + 1;
+                }
+            },
+            quarters: {
+                label: 'Quarters',
+                cellWidth: 100,
+                getUnits: (start, end) => {
+                    const units = [];
+                    let current = new Date(start.getFullYear(), Math.floor(start.getMonth() / 3) * 3, 1);
+
+                    while (current <= end) {
+                        const quarter = Math.floor(current.getMonth() / 3) + 1;
+                        units.push({
+                            date: new Date(current),
+                            label: `Q${quarter}`,
+                            year: current.getFullYear()
+                        });
+                        current.setMonth(current.getMonth() + 3);
+                    }
+                    return units;
+                },
+                getDuration: (start, end) => {
+                    const startQ = Math.floor(start.getMonth() / 3);
+                    const endQ = Math.floor(end.getMonth() / 3);
+                    return (end.getFullYear() - start.getFullYear()) * 4 + endQ - startQ + 1;
+                }
+            },
+            semesters: {
+                label: 'Semesters',
+                cellWidth: 120,
+                getUnits: (start, end) => {
+                    const units = [];
+                    let current = new Date(start.getFullYear(), Math.floor(start.getMonth() / 6) * 6, 1);
+
+                    while (current <= end) {
+                        const semester = Math.floor(current.getMonth() / 6) + 1;
+                        units.push({
+                            date: new Date(current),
+                            label: `S${semester}`,
+                            year: current.getFullYear()
+                        });
+                        current.setMonth(current.getMonth() + 6);
+                    }
+                    return units;
+                },
+                getDuration: (start, end) => {
+                    const startS = Math.floor(start.getMonth() / 6);
+                    const endS = Math.floor(end.getMonth() / 6);
+                    return (end.getFullYear() - start.getFullYear()) * 2 + endS - startS + 1;
+                }
+            },
+            years: {
+                label: 'Years',
+                cellWidth: 150,
+                getUnits: (start, end) => {
+                    const units = [];
+                    let current = new Date(start.getFullYear(), 0, 1);
+
+                    while (current <= end) {
+                        units.push({
+                            date: new Date(current),
+                            label: current.getFullYear().toString(),
+                            year: current.getFullYear()
+                        });
+                        current.setFullYear(current.getFullYear() + 1);
+                    }
+                    return units;
+                },
+                getDuration: (start, end) => {
+                    return end.getFullYear() - start.getFullYear() + 1;
+                }
+            }
+        };
 
         // State
         let tasks = [];
@@ -538,6 +729,13 @@
         let endDate = new Date();
         let today = new Date();
         today.setHours(0, 0, 0, 0);
+        let currentView = 'days';
+        let sidebarWidth = 300;
+
+        // Undo/Redo state
+        let historyPast = [];
+        let historyFuture = [];
+        const MAX_HISTORY = 50;
 
         // Default data
         const defaultTasks = [
@@ -568,6 +766,14 @@
         function parseDate(str) {
             const d = new Date(str + 'T00:00:00');
             return d;
+        }
+
+        function getWeekNumber(date) {
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
         }
 
         function calculateDateRange() {
@@ -609,6 +815,87 @@
             }
         }
 
+        // Undo/Redo functionality
+        function createSnapshot() {
+            return JSON.parse(JSON.stringify(tasks));
+        }
+
+        function pushHistory() {
+            // Add current state to past history
+            historyPast.push(createSnapshot());
+
+            // Limit history size
+            if (historyPast.length > MAX_HISTORY) {
+                historyPast.shift();
+            }
+
+            // Clear future history when new action is performed
+            historyFuture = [];
+
+            updateUndoRedoButtons();
+        }
+
+        function undo() {
+            if (historyPast.length === 0) return;
+
+            // Save current state to future
+            historyFuture.push(createSnapshot());
+
+            // Restore previous state
+            tasks = historyPast.pop();
+
+            saveToStorage();
+            render();
+            updateUndoRedoButtons();
+            showToast('Undo');
+        }
+
+        function redo() {
+            if (historyFuture.length === 0) return;
+
+            // Save current state to past
+            historyPast.push(createSnapshot());
+
+            // Restore future state
+            tasks = historyFuture.pop();
+
+            saveToStorage();
+            render();
+            updateUndoRedoButtons();
+            showToast('Redo');
+        }
+
+        function updateUndoRedoButtons() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+
+            if (undoBtn) {
+                undoBtn.disabled = historyPast.length === 0;
+            }
+            if (redoBtn) {
+                redoBtn.disabled = historyFuture.length === 0;
+            }
+        }
+
+        function saveSettings() {
+            const settings = {
+                currentView,
+                sidebarWidth
+            };
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+
+        function loadSettings() {
+            const data = localStorage.getItem(SETTINGS_KEY);
+            if (data) {
+                const settings = JSON.parse(data);
+                currentView = settings.currentView || 'days';
+                sidebarWidth = settings.sidebarWidth || 300;
+                applySidebarWidth();
+                updateViewLabel();
+            }
+        }
+
         // Export/Import
         function exportData() {
             const dataStr = JSON.stringify(tasks, null, 2);
@@ -629,6 +916,9 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
+                    // Save history before importing
+                    pushHistory();
+
                     tasks = JSON.parse(e.target.result);
                     saveToStorage();
                     render();
@@ -643,6 +933,9 @@
 
         function clearAllData() {
             if (confirm('Are you sure you want to delete all tasks?')) {
+                // Save history before clearing
+                pushHistory();
+
                 tasks = [];
                 saveToStorage();
                 render();
@@ -657,45 +950,194 @@
             toast.show();
         }
 
+        // View management
+        function changeView(view) {
+            if (viewConfig[view]) {
+                currentView = view;
+                updateViewLabel();
+                saveSettings();
+                render();
+            }
+        }
+
+        function updateViewLabel() {
+            const label = viewConfig[currentView]?.label || 'Days';
+            document.getElementById('viewModeLabel').textContent = label;
+        }
+
+        // Sidebar resizing
+        function applySidebarWidth() {
+            const sidebar = document.getElementById('taskSidebar');
+            if (sidebar) {
+                sidebar.style.width = `${sidebarWidth}px`;
+            }
+        }
+
+        function setupSidebarResize() {
+            const handle = document.getElementById('sidebarResizeHandle');
+            const sidebar = document.getElementById('taskSidebar');
+            let isResizing = false;
+            let startX = 0;
+            let startWidth = 0;
+
+            handle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = sidebar.offsetWidth;
+                document.body.style.cursor = 'ew-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const dx = e.clientX - startX;
+                const newWidth = Math.max(200, Math.min(600, startWidth + dx));
+                sidebar.style.width = `${newWidth}px`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!isResizing) return;
+
+                isResizing = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                sidebarWidth = sidebar.offsetWidth;
+                saveSettings();
+            });
+        }
+
         // Render functions
         function renderTimelineHeader() {
             const header = document.getElementById('timelineHeader');
-            let html = '';
-            let current = new Date(startDate);
+            const config = viewConfig[currentView];
+            const units = config.getUnits(startDate, endDate);
 
-            while (current <= endDate) {
-                const month = current.toLocaleString('default', { month: 'short' });
-                const year = current.getFullYear();
-                const monthStart = new Date(current);
-                const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-                const displayEnd = monthEnd > endDate ? endDate : monthEnd;
+            if (currentView === 'days') {
+                // Group by month for day view
+                let html = '';
+                let currentMonth = null;
+                let monthUnits = [];
 
-                let daysHtml = '';
-                let dayCount = 0;
+                units.forEach((unit, idx) => {
+                    const monthKey = `${unit.month}-${unit.year}`;
+                    if (currentMonth !== monthKey) {
+                        if (monthUnits.length > 0) {
+                            html += renderMonthGroup(monthUnits, config.cellWidth);
+                        }
+                        currentMonth = monthKey;
+                        monthUnits = [];
+                    }
+                    monthUnits.push(unit);
+                });
 
-                for (let d = new Date(monthStart); d <= displayEnd; d.setDate(d.getDate() + 1)) {
-                    const dayNum = d.getDate();
-                    const dayOfWeek = d.getDay();
-                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                    const isToday = d.toDateString() === today.toDateString();
-
-                    let classes = 'timeline-day';
-                    if (isWeekend) classes += ' weekend';
-                    if (isToday) classes += ' today';
-
-                    daysHtml += `<div class="${classes}">${dayNum}</div>`;
-                    dayCount++;
+                if (monthUnits.length > 0) {
+                    html += renderMonthGroup(monthUnits, config.cellWidth);
                 }
 
-                html += `
-                    <div class="timeline-month" style="width: ${dayCount * dayWidth}px">
-                        <div class="timeline-month-name">${month} ${year}</div>
-                        <div class="timeline-days">${daysHtml}</div>
-                    </div>
-                `;
-                current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+                header.innerHTML = html;
+            } else if (currentView === 'weeks') {
+                // Group by month for week view
+                let html = '';
+                let currentMonth = null;
+                let monthUnits = [];
+
+                units.forEach(unit => {
+                    const monthKey = `${unit.month}-${unit.year}`;
+                    if (currentMonth !== monthKey) {
+                        if (monthUnits.length > 0) {
+                            html += renderWeekMonthGroup(monthUnits, config.cellWidth);
+                        }
+                        currentMonth = monthKey;
+                        monthUnits = [];
+                    }
+                    monthUnits.push(unit);
+                });
+
+                if (monthUnits.length > 0) {
+                    html += renderWeekMonthGroup(monthUnits, config.cellWidth);
+                }
+
+                header.innerHTML = html;
+            } else {
+                // For months, quarters, semesters, years - group by year
+                let html = '';
+                let currentYear = null;
+                let yearUnits = [];
+
+                units.forEach(unit => {
+                    if (currentYear !== unit.year) {
+                        if (yearUnits.length > 0) {
+                            html += renderYearGroup(yearUnits, config.cellWidth);
+                        }
+                        currentYear = unit.year;
+                        yearUnits = [];
+                    }
+                    yearUnits.push(unit);
+                });
+
+                if (yearUnits.length > 0) {
+                    html += renderYearGroup(yearUnits, config.cellWidth);
+                }
+
+                header.innerHTML = html;
             }
-            header.innerHTML = html;
+        }
+
+        function renderMonthGroup(units, cellWidth) {
+            const firstUnit = units[0];
+            const month = firstUnit.month;
+            const year = firstUnit.year;
+            const totalWidth = units.length * cellWidth;
+
+            let cellsHtml = units.map(unit => {
+                let classes = 'timeline-day';
+                if (unit.isWeekend) classes += ' weekend';
+                if (unit.isToday) classes += ' today';
+                return `<div class="${classes}">${unit.label}</div>`;
+            }).join('');
+
+            return `
+                <div class="timeline-month" style="width: ${totalWidth}px">
+                    <div class="timeline-month-name">${month} ${year}</div>
+                    <div class="timeline-days">${cellsHtml}</div>
+                </div>
+            `;
+        }
+
+        function renderWeekMonthGroup(units, cellWidth) {
+            const firstUnit = units[0];
+            const month = firstUnit.month;
+            const year = firstUnit.year;
+            const totalWidth = units.length * cellWidth;
+
+            let cellsHtml = units.map(unit => {
+                return `<div class="timeline-day">${unit.label}</div>`;
+            }).join('');
+
+            return `
+                <div class="timeline-month" style="width: ${totalWidth}px">
+                    <div class="timeline-month-name">${month} ${year}</div>
+                    <div class="timeline-days">${cellsHtml}</div>
+                </div>
+            `;
+        }
+
+        function renderYearGroup(units, cellWidth) {
+            const year = units[0].year;
+            const totalWidth = units.length * cellWidth;
+
+            let cellsHtml = units.map(unit => {
+                return `<div class="timeline-day">${unit.label}</div>`;
+            }).join('');
+
+            return `
+                <div class="timeline-month" style="width: ${totalWidth}px">
+                    <div class="timeline-month-name">${year}</div>
+                    <div class="timeline-days">${cellsHtml}</div>
+                </div>
+            `;
         }
 
         function renderTaskList() {
@@ -726,7 +1168,9 @@
 
         function renderTimelineBody() {
             const body = document.getElementById('timelineBody');
-            const totalDays = daysBetween(startDate, endDate) + 1;
+            const config = viewConfig[currentView];
+            const units = config.getUnits(startDate, endDate);
+            const totalWidth = units.length * config.cellWidth;
 
             // Clear existing content except SVG
             const svg = document.getElementById('dependenciesLayer');
@@ -741,35 +1185,98 @@
                 row.dataset.id = task.id;
 
                 let cellsHtml = '';
-                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-                    const dayOfWeek = d.getDay();
-                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                    const isToday = d.toDateString() === today.toDateString();
-
-                    let classes = 'timeline-cell';
-                    if (isWeekend) classes += ' weekend';
-                    if (isToday) classes += ' today';
-                    cellsHtml += `<div class="${classes}"></div>`;
+                if (currentView === 'days') {
+                    // For days view, render each day
+                    units.forEach(unit => {
+                        let classes = 'timeline-cell';
+                        if (unit.isWeekend) classes += ' weekend';
+                        if (unit.isToday) classes += ' today';
+                        cellsHtml += `<div class="${classes}"></div>`;
+                    });
+                } else {
+                    // For other views, render each unit
+                    units.forEach(unit => {
+                        cellsHtml += `<div class="timeline-cell"></div>`;
+                    });
                 }
                 row.innerHTML = cellsHtml;
                 body.appendChild(row);
             });
 
-            body.style.width = `${totalDays * dayWidth}px`;
+            body.style.width = `${totalWidth}px`;
 
             // Render bars
             tasks.forEach((task, index) => {
                 const taskStart = parseDate(task.start);
                 const taskEnd = parseDate(task.end);
-                const startOffset = daysBetween(startDate, taskStart) * dayWidth;
-                const duration = daysBetween(taskStart, taskEnd) + 1;
-                const width = duration * dayWidth - 4;
+                const config = viewConfig[currentView];
+
+                // Calculate position and width based on current view
+                let startOffset, width;
+                if (currentView === 'days') {
+                    startOffset = daysBetween(startDate, taskStart) * config.cellWidth;
+                    const duration = daysBetween(taskStart, taskEnd) + 1;
+                    width = duration * config.cellWidth - 4;
+                } else {
+                    // For other views, calculate based on unit position
+                    const allUnits = config.getUnits(startDate, endDate);
+
+                    // Find which unit the task starts in
+                    let startUnitIndex = 0;
+                    let endUnitIndex = allUnits.length - 1;
+
+                    if (currentView === 'weeks') {
+                        startUnitIndex = allUnits.findIndex(u => taskStart >= u.date && taskStart <= u.endDate);
+                        endUnitIndex = allUnits.findIndex(u => taskEnd >= u.date && taskEnd <= u.endDate);
+                    } else if (currentView === 'months') {
+                        startUnitIndex = allUnits.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            taskStart.getMonth() === u.date.getMonth()
+                        );
+                        endUnitIndex = allUnits.findIndex(u =>
+                            taskEnd.getFullYear() === u.date.getFullYear() &&
+                            taskEnd.getMonth() === u.date.getMonth()
+                        );
+                    } else if (currentView === 'quarters') {
+                        const startQ = Math.floor(taskStart.getMonth() / 3);
+                        const endQ = Math.floor(taskEnd.getMonth() / 3);
+                        startUnitIndex = allUnits.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 3) === startQ
+                        );
+                        endUnitIndex = allUnits.findIndex(u =>
+                            taskEnd.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 3) === endQ
+                        );
+                    } else if (currentView === 'semesters') {
+                        const startS = Math.floor(taskStart.getMonth() / 6);
+                        const endS = Math.floor(taskEnd.getMonth() / 6);
+                        startUnitIndex = allUnits.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 6) === startS
+                        );
+                        endUnitIndex = allUnits.findIndex(u =>
+                            taskEnd.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 6) === endS
+                        );
+                    } else if (currentView === 'years') {
+                        startUnitIndex = allUnits.findIndex(u => taskStart.getFullYear() === u.date.getFullYear());
+                        endUnitIndex = allUnits.findIndex(u => taskEnd.getFullYear() === u.date.getFullYear());
+                    }
+
+                    if (startUnitIndex === -1) startUnitIndex = 0;
+                    if (endUnitIndex === -1) endUnitIndex = allUnits.length - 1;
+
+                    startOffset = startUnitIndex * config.cellWidth;
+                    width = (endUnitIndex - startUnitIndex + 1) * config.cellWidth - 4;
+                }
+
                 const top = index * rowHeight;
 
                 if (task.type === 'milestone') {
                     const el = document.createElement('div');
                     el.className = 'milestone';
-                    el.style.left = `${startOffset + (dayWidth/2) - 10}px`;
+                    el.style.left = `${startOffset + (config.cellWidth/2) - 10}px`;
                     el.style.top = `${top + 12}px`;
                     el.dataset.id = task.id;
                     el.ondblclick = () => openTaskModal(task.id);
@@ -806,17 +1313,29 @@
                 }
             });
 
-            // Today line
-            const todayOffset = daysBetween(startDate, today) * dayWidth + (dayWidth / 2);
-            if (todayOffset >= 0 && todayOffset <= totalDays * dayWidth) {
-                const todayLine = document.createElement('div');
-                todayLine.className = 'today-line';
-                todayLine.style.left = `${todayOffset}px`;
-                todayLine.style.height = `${tasks.length * rowHeight}px`;
-                body.appendChild(todayLine);
+            // Today line (only for day/week views)
+            if (currentView === 'days' || currentView === 'weeks') {
+                let todayOffset = 0;
+                if (currentView === 'days') {
+                    todayOffset = daysBetween(startDate, today) * config.cellWidth + (config.cellWidth / 2);
+                } else if (currentView === 'weeks') {
+                    const allUnits = config.getUnits(startDate, endDate);
+                    const todayUnitIndex = allUnits.findIndex(u => today >= u.date && today <= u.endDate);
+                    if (todayUnitIndex !== -1) {
+                        todayOffset = todayUnitIndex * config.cellWidth + (config.cellWidth / 2);
+                    }
+                }
+
+                if (todayOffset >= 0 && todayOffset <= totalWidth) {
+                    const todayLine = document.createElement('div');
+                    todayLine.className = 'today-line';
+                    todayLine.style.left = `${todayOffset}px`;
+                    todayLine.style.height = `${tasks.length * rowHeight}px`;
+                    body.appendChild(todayLine);
+                }
             }
 
-            document.getElementById('timelineWrapper').style.width = `${totalDays * dayWidth}px`;
+            document.getElementById('timelineWrapper').style.width = `${totalWidth}px`;
 
             // Render dependencies
             renderDependencies();
@@ -824,8 +1343,10 @@
 
         function renderDependencies() {
             const svg = document.getElementById('dependenciesLayer');
-            const totalDays = daysBetween(startDate, endDate) + 1;
-            svg.setAttribute('width', totalDays * dayWidth);
+            const config = viewConfig[currentView];
+            const units = config.getUnits(startDate, endDate);
+            const totalWidth = units.length * config.cellWidth;
+            svg.setAttribute('width', totalWidth);
             svg.setAttribute('height', tasks.length * rowHeight);
 
             // Remove old paths
@@ -841,9 +1362,62 @@
                 const depEnd = parseDate(depTask.end);
                 const taskStart = parseDate(task.start);
 
-                const x1 = daysBetween(startDate, depEnd) * dayWidth + dayWidth;
+                let x1, x2;
+                if (currentView === 'days') {
+                    x1 = daysBetween(startDate, depEnd) * config.cellWidth + config.cellWidth;
+                    x2 = daysBetween(startDate, taskStart) * config.cellWidth;
+                } else {
+                    // Calculate unit indices for non-day views
+                    const allUnits = units;
+                    let depEndIndex = 0, taskStartIndex = 0;
+
+                    if (currentView === 'weeks') {
+                        depEndIndex = allUnits.findIndex(u => depEnd >= u.date && depEnd <= u.endDate);
+                        taskStartIndex = allUnits.findIndex(u => taskStart >= u.date && taskStart <= u.endDate);
+                    } else if (currentView === 'months') {
+                        depEndIndex = allUnits.findIndex(u =>
+                            depEnd.getFullYear() === u.date.getFullYear() &&
+                            depEnd.getMonth() === u.date.getMonth()
+                        );
+                        taskStartIndex = allUnits.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            taskStart.getMonth() === u.date.getMonth()
+                        );
+                    } else if (currentView === 'quarters') {
+                        const depQ = Math.floor(depEnd.getMonth() / 3);
+                        const taskQ = Math.floor(taskStart.getMonth() / 3);
+                        depEndIndex = allUnits.findIndex(u =>
+                            depEnd.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 3) === depQ
+                        );
+                        taskStartIndex = allUnits.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 3) === taskQ
+                        );
+                    } else if (currentView === 'semesters') {
+                        const depS = Math.floor(depEnd.getMonth() / 6);
+                        const taskS = Math.floor(taskStart.getMonth() / 6);
+                        depEndIndex = allUnits.findIndex(u =>
+                            depEnd.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 6) === depS
+                        );
+                        taskStartIndex = allUnits.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 6) === taskS
+                        );
+                    } else if (currentView === 'years') {
+                        depEndIndex = allUnits.findIndex(u => depEnd.getFullYear() === u.date.getFullYear());
+                        taskStartIndex = allUnits.findIndex(u => taskStart.getFullYear() === u.date.getFullYear());
+                    }
+
+                    if (depEndIndex === -1) depEndIndex = allUnits.length - 1;
+                    if (taskStartIndex === -1) taskStartIndex = 0;
+
+                    x1 = (depEndIndex + 1) * config.cellWidth;
+                    x2 = taskStartIndex * config.cellWidth;
+                }
+
                 const y1 = depIndex * rowHeight + rowHeight / 2;
-                const x2 = daysBetween(startDate, taskStart) * dayWidth;
                 const y2 = index * rowHeight + rowHeight / 2;
 
                 const midX = (x1 + x2) / 2;
@@ -880,21 +1454,23 @@
             document.addEventListener('mousemove', (e) => {
                 if (!isDragging && !isResizing) return;
 
+                const config = viewConfig[currentView];
+                const cellWidth = config.cellWidth;
                 const dx = e.clientX - startX;
-                const daysDelta = Math.round(dx / dayWidth);
+                const unitsDelta = Math.round(dx / cellWidth);
 
                 if (isDragging) {
-                    bar.style.left = `${origLeft + daysDelta * dayWidth}px`;
+                    bar.style.left = `${origLeft + unitsDelta * cellWidth}px`;
                 } else if (isResizing) {
                     if (resizeDir === 'right') {
-                        const newWidth = origWidth + daysDelta * dayWidth;
-                        if (newWidth >= dayWidth) {
+                        const newWidth = origWidth + unitsDelta * cellWidth;
+                        if (newWidth >= cellWidth) {
                             bar.style.width = `${newWidth}px`;
                         }
                     } else {
-                        const newWidth = origWidth - daysDelta * dayWidth;
-                        if (newWidth >= dayWidth) {
-                            bar.style.left = `${origLeft + daysDelta * dayWidth}px`;
+                        const newWidth = origWidth - unitsDelta * cellWidth;
+                        if (newWidth >= cellWidth) {
+                            bar.style.left = `${origLeft + unitsDelta * cellWidth}px`;
                             bar.style.width = `${newWidth}px`;
                         }
                     }
@@ -906,31 +1482,84 @@
 
                 bar.classList.remove('dragging');
 
-                // Calculate new dates
+                // Get current view config
+                const config = viewConfig[currentView];
+                const cellWidth = config.cellWidth;
+
+                // Calculate new position
                 const newLeft = parseInt(bar.style.left) - 2;
                 const newWidth = parseInt(bar.style.width) + 4;
-                const startDays = Math.round(newLeft / dayWidth);
-                const durationDays = Math.round(newWidth / dayWidth);
+                const startUnits = Math.round(newLeft / cellWidth);
+                const durationUnits = Math.round(newWidth / cellWidth);
 
-                const newStart = new Date(startDate);
-                newStart.setDate(newStart.getDate() + startDays);
-                const newEnd = new Date(newStart);
-                newEnd.setDate(newEnd.getDate() + durationDays - 1);
+                // Calculate new dates based on current view
+                let newStart, newEnd;
 
-                // Calculate how many days the task moved
-                const oldStart = parseDate(task.start);
-                const daysMoved = daysBetween(oldStart, newStart);
+                if (currentView === 'days') {
+                    // For days view, direct day calculation
+                    newStart = new Date(startDate);
+                    newStart.setDate(newStart.getDate() + startUnits);
+                    newEnd = new Date(newStart);
+                    newEnd.setDate(newEnd.getDate() + durationUnits - 1);
+                } else {
+                    // For other views, find the unit and calculate dates
+                    const units = config.getUnits(startDate, endDate);
 
-                task.start = formatDate(newStart);
-                task.end = formatDate(newEnd);
+                    if (startUnits >= 0 && startUnits < units.length) {
+                        const startUnit = units[startUnits];
+                        newStart = new Date(startUnit.date);
 
-                // Cascade changes to dependent tasks
-                if (daysMoved !== 0) {
-                    shiftDependentTasks(task.id, daysMoved);
+                        const endUnitIndex = Math.min(startUnits + durationUnits - 1, units.length - 1);
+                        const endUnit = units[endUnitIndex];
+
+                        if (currentView === 'weeks' && endUnit.endDate) {
+                            newEnd = new Date(endUnit.endDate);
+                        } else if (currentView === 'months') {
+                            // End of month
+                            newEnd = new Date(endUnit.date.getFullYear(), endUnit.date.getMonth() + 1, 0);
+                        } else if (currentView === 'quarters') {
+                            // End of quarter
+                            const quarterMonth = Math.floor(endUnit.date.getMonth() / 3) * 3 + 2;
+                            newEnd = new Date(endUnit.date.getFullYear(), quarterMonth + 1, 0);
+                        } else if (currentView === 'semesters') {
+                            // End of semester
+                            const semesterMonth = Math.floor(endUnit.date.getMonth() / 6) * 6 + 5;
+                            newEnd = new Date(endUnit.date.getFullYear(), semesterMonth + 1, 0);
+                        } else if (currentView === 'years') {
+                            // End of year
+                            newEnd = new Date(endUnit.date.getFullYear(), 11, 31);
+                        } else {
+                            newEnd = new Date(endUnit.date);
+                        }
+                    } else {
+                        // Fallback to original dates if calculation fails
+                        newStart = parseDate(task.start);
+                        newEnd = parseDate(task.end);
+                    }
                 }
 
-                saveToStorage();
-                render(); // Full re-render to update all bars
+                // Check if dates actually changed
+                const oldStart = parseDate(task.start);
+                const oldEnd = parseDate(task.end);
+
+                if (newStart.getTime() !== oldStart.getTime() || newEnd.getTime() !== oldEnd.getTime()) {
+                    // Save history before making changes
+                    pushHistory();
+
+                    // Calculate how many days the task moved
+                    const daysMoved = daysBetween(oldStart, newStart);
+
+                    task.start = formatDate(newStart);
+                    task.end = formatDate(newEnd);
+
+                    // Cascade changes to dependent tasks
+                    if (daysMoved !== 0) {
+                        shiftDependentTasks(task.id, daysMoved);
+                    }
+
+                    saveToStorage();
+                    render(); // Full re-render to update all bars
+                }
 
                 isDragging = false;
                 isResizing = false;
@@ -1071,6 +1700,9 @@
                 if (dep) taskData.dependsOn = parseInt(dep);
             }
 
+            // Save history before making changes
+            pushHistory();
+
             if (id) {
                 const index = tasks.findIndex(t => t.id === parseInt(id));
                 tasks[index] = taskData;
@@ -1087,6 +1719,9 @@
         function deleteTask() {
             const id = parseInt(document.getElementById('taskId').value);
             if (confirm('Delete this task?')) {
+                // Save history before making changes
+                pushHistory();
+
                 tasks = tasks.filter(t => t.id !== id);
                 // Remove dependencies to this task
                 tasks.forEach(t => {
@@ -1110,7 +1745,19 @@
         // Scroll to today
         function scrollToToday() {
             const timelineArea = document.getElementById('timelineArea');
-            const todayOffset = daysBetween(startDate, today) * dayWidth - timelineArea.clientWidth / 2;
+            const config = viewConfig[currentView];
+
+            let todayOffset = 0;
+            if (currentView === 'days') {
+                todayOffset = daysBetween(startDate, today) * config.cellWidth - timelineArea.clientWidth / 2;
+            } else if (currentView === 'weeks') {
+                const units = config.getUnits(startDate, endDate);
+                const todayUnitIndex = units.findIndex(u => today >= u.date && today <= u.endDate);
+                if (todayUnitIndex !== -1) {
+                    todayOffset = todayUnitIndex * config.cellWidth - timelineArea.clientWidth / 2;
+                }
+            }
+
             timelineArea.scrollLeft = Math.max(0, todayOffset);
         }
 
@@ -1148,10 +1795,12 @@
 
         // Generate SVG content
         function generateSVG() {
-            const totalDays = daysBetween(startDate, endDate) + 1;
-            const sidebarWidth = 300;
+            const config = viewConfig[currentView];
+            const units = config.getUnits(startDate, endDate);
+            const totalWidth = units.length * config.cellWidth;
+            const exportSidebarWidth = sidebarWidth;
             const headerHeight = 50;
-            const width = sidebarWidth + totalDays * dayWidth;
+            const width = exportSidebarWidth + totalWidth;
             const height = headerHeight + tasks.length * rowHeight;
 
             let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
@@ -1173,58 +1822,91 @@
             svg += `<rect width="${width}" height="${height}" fill="#f8fafc"/>`;
 
             // Sidebar background
-            svg += `<rect x="0" y="0" width="${sidebarWidth}" height="${height}" fill="white"/>`;
-            svg += `<rect x="0" y="0" width="${sidebarWidth}" height="${headerHeight}" fill="white"/>`;
-            svg += `<line x1="${sidebarWidth}" y1="0" x2="${sidebarWidth}" y2="${height}" stroke="#e2e8f0" stroke-width="2"/>`;
+            svg += `<rect x="0" y="0" width="${exportSidebarWidth}" height="${height}" fill="white"/>`;
+            svg += `<rect x="0" y="0" width="${exportSidebarWidth}" height="${headerHeight}" fill="white"/>`;
+            svg += `<line x1="${exportSidebarWidth}" y1="0" x2="${exportSidebarWidth}" y2="${height}" stroke="#e2e8f0" stroke-width="2"/>`;
 
             // Sidebar header
             svg += `<text x="16" y="30" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#64748b">TASK NAME</text>`;
 
             // Timeline header background
-            svg += `<rect x="${sidebarWidth}" y="0" width="${totalDays * dayWidth}" height="${headerHeight}" fill="white"/>`;
-            svg += `<line x1="${sidebarWidth}" y1="${headerHeight}" x2="${width}" y2="${headerHeight}" stroke="#e2e8f0"/>`;
+            svg += `<rect x="${exportSidebarWidth}" y="0" width="${totalWidth}" height="${headerHeight}" fill="white"/>`;
+            svg += `<line x1="${exportSidebarWidth}" y1="${headerHeight}" x2="${width}" y2="${headerHeight}" stroke="#e2e8f0"/>`;
 
-            // Draw timeline columns (weekends, today)
-            let dayIndex = 0;
-            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-                const x = sidebarWidth + dayIndex * dayWidth;
-                const dayOfWeek = d.getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                const isToday = d.toDateString() === today.toDateString();
-
-                if (isWeekend) {
-                    svg += `<rect x="${x}" y="0" width="${dayWidth}" height="${height}" fill="#fafafa"/>`;
-                }
-                if (isToday) {
-                    svg += `<rect x="${x}" y="0" width="${dayWidth}" height="${height}" fill="#eef2ff"/>`;
-                }
-                dayIndex++;
+            // Draw timeline columns (weekends, today) - only for day view
+            if (currentView === 'days') {
+                let unitIndex = 0;
+                units.forEach(unit => {
+                    const x = exportSidebarWidth + unitIndex * config.cellWidth;
+                    if (unit.isWeekend) {
+                        svg += `<rect x="${x}" y="0" width="${config.cellWidth}" height="${height}" fill="#fafafa"/>`;
+                    }
+                    if (unit.isToday) {
+                        svg += `<rect x="${x}" y="0" width="${config.cellWidth}" height="${height}" fill="#eef2ff"/>`;
+                    }
+                    unitIndex++;
+                });
             }
 
-            // Draw month headers and day numbers
-            let current = new Date(startDate);
-            let xOffset = sidebarWidth;
-            while (current <= endDate) {
-                const month = current.toLocaleString('default', { month: 'short' });
-                const year = current.getFullYear();
-                const monthStart = new Date(current);
-                const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-                const displayEnd = monthEnd > endDate ? endDate : monthEnd;
+            // Draw headers based on view mode
+            let xOffset = exportSidebarWidth;
+            if (currentView === 'days') {
+                // Group by month
+                let current = new Date(startDate);
+                while (current <= endDate) {
+                    const month = current.toLocaleString('default', { month: 'short' });
+                    const year = current.getFullYear();
+                    const monthStart = new Date(current);
+                    const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+                    const displayEnd = monthEnd > endDate ? endDate : monthEnd;
 
-                let dayCount = 0;
-                for (let d = new Date(monthStart); d <= displayEnd; d.setDate(d.getDate() + 1)) {
-                    const dayNum = d.getDate();
-                    const dayX = xOffset + dayCount * dayWidth;
-                    svg += `<text x="${dayX + dayWidth/2}" y="${headerHeight - 8}" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">${dayNum}</text>`;
-                    dayCount++;
+                    let dayCount = 0;
+                    for (let d = new Date(monthStart); d <= displayEnd; d.setDate(d.getDate() + 1)) {
+                        const dayNum = d.getDate();
+                        const dayX = xOffset + dayCount * config.cellWidth;
+                        svg += `<text x="${dayX + config.cellWidth/2}" y="${headerHeight - 8}" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">${dayNum}</text>`;
+                        dayCount++;
+                    }
+
+                    const monthWidth = dayCount * config.cellWidth;
+                    svg += `<text x="${xOffset + monthWidth/2}" y="18" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#64748b" text-anchor="middle">${month} ${year}</text>`;
+                    svg += `<line x1="${xOffset + monthWidth}" y1="0" x2="${xOffset + monthWidth}" y2="${headerHeight}" stroke="#e2e8f0"/>`;
+
+                    xOffset += monthWidth;
+                    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
                 }
+            } else {
+                // For other views, render units grouped appropriately
+                let currentGroup = null;
+                let groupUnits = [];
+                let groupKey = unit => currentView === 'weeks' || currentView === 'months' ? `${unit.month}-${unit.year}` : unit.year;
 
-                const monthWidth = dayCount * dayWidth;
-                svg += `<text x="${xOffset + monthWidth/2}" y="18" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#64748b" text-anchor="middle">${month} ${year}</text>`;
-                svg += `<line x1="${xOffset + monthWidth}" y1="0" x2="${xOffset + monthWidth}" y2="${headerHeight}" stroke="#e2e8f0"/>`;
+                units.forEach((unit, idx) => {
+                    const key = groupKey(unit);
+                    if (currentGroup !== key) {
+                        if (groupUnits.length > 0) {
+                            const groupWidth = groupUnits.length * config.cellWidth;
+                            const groupLabel = currentView === 'weeks' || currentView === 'months' ?
+                                `${groupUnits[0].month} ${groupUnits[0].year}` : currentGroup;
+                            svg += `<text x="${xOffset - groupWidth + groupWidth/2}" y="18" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#64748b" text-anchor="middle">${groupLabel}</text>`;
+                        }
+                        currentGroup = key;
+                        groupUnits = [];
+                    }
 
-                xOffset += monthWidth;
-                current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+                    // Draw unit label
+                    svg += `<text x="${xOffset + config.cellWidth/2}" y="${headerHeight - 8}" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">${unit.label}</text>`;
+                    groupUnits.push(unit);
+                    xOffset += config.cellWidth;
+                });
+
+                // Draw last group header
+                if (groupUnits.length > 0) {
+                    const groupWidth = groupUnits.length * config.cellWidth;
+                    const groupLabel = currentView === 'weeks' || currentView === 'months' ?
+                        `${groupUnits[0].month} ${groupUnits[0].year}` : currentGroup;
+                    svg += `<text x="${xOffset - groupWidth + groupWidth/2}" y="18" font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#64748b" text-anchor="middle">${groupLabel}</text>`;
+                }
             }
 
             // Draw horizontal row lines
@@ -1246,8 +1928,8 @@
 
                 // Row background for groups
                 if (isGroup) {
-                    svg += `<rect x="0" y="${y}" width="${sidebarWidth}" height="${rowHeight}" fill="#f1f5f9"/>`;
-                    svg += `<rect x="${sidebarWidth}" y="${y}" width="${totalDays * dayWidth}" height="${rowHeight}" fill="#f8fafc"/>`;
+                    svg += `<rect x="0" y="${y}" width="${exportSidebarWidth}" height="${rowHeight}" fill="#f1f5f9"/>`;
+                    svg += `<rect x="${exportSidebarWidth}" y="${y}" width="${totalWidth}" height="${rowHeight}" fill="#f8fafc"/>`;
                 }
 
                 // Draw icon as SVG shape instead of emoji
@@ -1271,8 +1953,8 @@
 
                 // Assignee
                 if (task.assignee) {
-                    svg += `<circle cx="${sidebarWidth - 24}" cy="${y + rowHeight/2}" r="12" fill="#818cf8"/>`;
-                    svg += `<text x="${sidebarWidth - 24}" y="${y + rowHeight/2 + 4}" font-family="Arial, sans-serif" font-size="9" fill="white" text-anchor="middle" font-weight="600">${escapeXml(task.assignee)}</text>`;
+                    svg += `<circle cx="${exportSidebarWidth - 24}" cy="${y + rowHeight/2}" r="12" fill="#818cf8"/>`;
+                    svg += `<text x="${exportSidebarWidth - 24}" y="${y + rowHeight/2 + 4}" font-family="Arial, sans-serif" font-size="9" fill="white" text-anchor="middle" font-weight="600">${escapeXml(task.assignee)}</text>`;
                 }
             });
 
@@ -1286,9 +1968,60 @@
                 const depEnd = parseDate(depTask.end);
                 const taskStart = parseDate(task.start);
 
-                const x1 = sidebarWidth + daysBetween(startDate, depEnd) * dayWidth + dayWidth;
+                let x1, x2;
+                if (currentView === 'days') {
+                    x1 = exportSidebarWidth + daysBetween(startDate, depEnd) * config.cellWidth + config.cellWidth;
+                    x2 = exportSidebarWidth + daysBetween(startDate, taskStart) * config.cellWidth;
+                } else {
+                    // Use same logic as renderDependencies for other views
+                    let depEndIndex = 0, taskStartIndex = 0;
+                    if (currentView === 'weeks') {
+                        depEndIndex = units.findIndex(u => depEnd >= u.date && depEnd <= u.endDate);
+                        taskStartIndex = units.findIndex(u => taskStart >= u.date && taskStart <= u.endDate);
+                    } else if (currentView === 'months') {
+                        depEndIndex = units.findIndex(u =>
+                            depEnd.getFullYear() === u.date.getFullYear() &&
+                            depEnd.getMonth() === u.date.getMonth()
+                        );
+                        taskStartIndex = units.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            taskStart.getMonth() === u.date.getMonth()
+                        );
+                    } else if (currentView === 'quarters') {
+                        const depQ = Math.floor(depEnd.getMonth() / 3);
+                        const taskQ = Math.floor(taskStart.getMonth() / 3);
+                        depEndIndex = units.findIndex(u =>
+                            depEnd.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 3) === depQ
+                        );
+                        taskStartIndex = units.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 3) === taskQ
+                        );
+                    } else if (currentView === 'semesters') {
+                        const depS = Math.floor(depEnd.getMonth() / 6);
+                        const taskS = Math.floor(taskStart.getMonth() / 6);
+                        depEndIndex = units.findIndex(u =>
+                            depEnd.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 6) === depS
+                        );
+                        taskStartIndex = units.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 6) === taskS
+                        );
+                    } else if (currentView === 'years') {
+                        depEndIndex = units.findIndex(u => depEnd.getFullYear() === u.date.getFullYear());
+                        taskStartIndex = units.findIndex(u => taskStart.getFullYear() === u.date.getFullYear());
+                    }
+
+                    if (depEndIndex === -1) depEndIndex = units.length - 1;
+                    if (taskStartIndex === -1) taskStartIndex = 0;
+
+                    x1 = exportSidebarWidth + (depEndIndex + 1) * config.cellWidth;
+                    x2 = exportSidebarWidth + taskStartIndex * config.cellWidth;
+                }
+
                 const y1 = headerHeight + depIndex * rowHeight + rowHeight / 2;
-                const x2 = sidebarWidth + daysBetween(startDate, taskStart) * dayWidth;
                 const y2 = headerHeight + index * rowHeight + rowHeight / 2;
 
                 const midX = (x1 + x2) / 2;
@@ -1299,14 +2032,69 @@
             tasks.forEach((task, index) => {
                 const taskStart = parseDate(task.start);
                 const taskEnd = parseDate(task.end);
-                const startOffset = daysBetween(startDate, taskStart) * dayWidth;
-                const duration = daysBetween(taskStart, taskEnd) + 1;
-                const barWidth = duration * dayWidth - 4;
-                const x = sidebarWidth + startOffset + 2;
+
+                // Calculate position and width based on current view
+                let startOffset, barWidth;
+                if (currentView === 'days') {
+                    startOffset = daysBetween(startDate, taskStart) * config.cellWidth;
+                    const duration = daysBetween(taskStart, taskEnd) + 1;
+                    barWidth = duration * config.cellWidth - 4;
+                } else {
+                    // Use same logic as renderTimelineBody for other views
+                    let startUnitIndex = 0;
+                    let endUnitIndex = units.length - 1;
+
+                    if (currentView === 'weeks') {
+                        startUnitIndex = units.findIndex(u => taskStart >= u.date && taskStart <= u.endDate);
+                        endUnitIndex = units.findIndex(u => taskEnd >= u.date && taskEnd <= u.endDate);
+                    } else if (currentView === 'months') {
+                        startUnitIndex = units.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            taskStart.getMonth() === u.date.getMonth()
+                        );
+                        endUnitIndex = units.findIndex(u =>
+                            taskEnd.getFullYear() === u.date.getFullYear() &&
+                            taskEnd.getMonth() === u.date.getMonth()
+                        );
+                    } else if (currentView === 'quarters') {
+                        const startQ = Math.floor(taskStart.getMonth() / 3);
+                        const endQ = Math.floor(taskEnd.getMonth() / 3);
+                        startUnitIndex = units.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 3) === startQ
+                        );
+                        endUnitIndex = units.findIndex(u =>
+                            taskEnd.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 3) === endQ
+                        );
+                    } else if (currentView === 'semesters') {
+                        const startS = Math.floor(taskStart.getMonth() / 6);
+                        const endS = Math.floor(taskEnd.getMonth() / 6);
+                        startUnitIndex = units.findIndex(u =>
+                            taskStart.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 6) === startS
+                        );
+                        endUnitIndex = units.findIndex(u =>
+                            taskEnd.getFullYear() === u.date.getFullYear() &&
+                            Math.floor(u.date.getMonth() / 6) === endS
+                        );
+                    } else if (currentView === 'years') {
+                        startUnitIndex = units.findIndex(u => taskStart.getFullYear() === u.date.getFullYear());
+                        endUnitIndex = units.findIndex(u => taskEnd.getFullYear() === u.date.getFullYear());
+                    }
+
+                    if (startUnitIndex === -1) startUnitIndex = 0;
+                    if (endUnitIndex === -1) endUnitIndex = units.length - 1;
+
+                    startOffset = startUnitIndex * config.cellWidth;
+                    barWidth = (endUnitIndex - startUnitIndex + 1) * config.cellWidth - 4;
+                }
+
+                const x = exportSidebarWidth + startOffset + 2;
                 const y = headerHeight + index * rowHeight;
 
                 if (task.type === 'milestone') {
-                    const mx = sidebarWidth + startOffset + dayWidth/2;
+                    const mx = exportSidebarWidth + startOffset + config.cellWidth/2;
                     const my = y + rowHeight/2;
                     svg += `<rect x="${mx - 10}" y="${my - 10}" width="14" height="14" fill="#f97316" transform="rotate(45 ${mx} ${my})" rx="2"/>`;
                 } else if (task.type === 'group') {
@@ -1323,12 +2111,23 @@
                 }
             });
 
-            // Today line
-            const todayOffset = daysBetween(startDate, today) * dayWidth + dayWidth / 2;
-            if (todayOffset >= 0 && todayOffset <= totalDays * dayWidth) {
-                const tx = sidebarWidth + todayOffset;
-                svg += `<line x1="${tx}" y1="${headerHeight}" x2="${tx}" y2="${height}" stroke="#ef4444" stroke-width="2"/>`;
-                svg += `<text x="${tx}" y="${headerHeight - 5}" font-family="Arial, sans-serif" font-size="9" fill="#ef4444" text-anchor="middle" font-weight="600">Today</text>`;
+            // Today line (only for day/week views)
+            if (currentView === 'days' || currentView === 'weeks') {
+                let todayOffset = 0;
+                if (currentView === 'days') {
+                    todayOffset = daysBetween(startDate, today) * config.cellWidth + config.cellWidth / 2;
+                } else if (currentView === 'weeks') {
+                    const todayUnitIndex = units.findIndex(u => today >= u.date && today <= u.endDate);
+                    if (todayUnitIndex !== -1) {
+                        todayOffset = todayUnitIndex * config.cellWidth + config.cellWidth / 2;
+                    }
+                }
+
+                if (todayOffset >= 0 && todayOffset <= totalWidth) {
+                    const tx = exportSidebarWidth + todayOffset;
+                    svg += `<line x1="${tx}" y1="${headerHeight}" x2="${tx}" y2="${height}" stroke="#ef4444" stroke-width="2"/>`;
+                    svg += `<text x="${tx}" y="${headerHeight - 5}" font-family="Arial, sans-serif" font-size="9" fill="#ef4444" text-anchor="middle" font-weight="600">Today</text>`;
+                }
             }
 
             svg += `</svg>`;
@@ -1398,10 +2197,30 @@
             img.src = 'data:image/svg+xml;base64,' + svgBase64;
         }
 
+        // Keyboard shortcuts
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+Z or Cmd+Z for undo
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                    e.preventDefault();
+                    undo();
+                }
+                // Ctrl+Y or Cmd+Y or Ctrl+Shift+Z for redo
+                else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                    e.preventDefault();
+                    redo();
+                }
+            });
+        }
+
         // Initialize
         loadFromStorage();
+        loadSettings();
         render();
         setupScrollSync();
+        setupSidebarResize();
+        setupKeyboardShortcuts();
+        updateUndoRedoButtons();
         setTimeout(scrollToToday, 100);
     </script>
 </body>
